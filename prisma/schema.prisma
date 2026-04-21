@@ -1,0 +1,48 @@
+// 1. This tells Prisma to generate a JavaScript library for you
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 2. This is the connection to your Docker container
+datasource db {
+  provider = "postgresql"
+  // url      = env("DATABASE_URL")
+}
+
+// 3. THE MODELS (Your Database Tables)
+
+model User {
+  id       String   @id @default(cuid()) // Unique ID for every user
+  email    String   @unique              // No two users can have the same email
+  name     String
+  role     String   @default("STUDENT")  // "STUDENT", "FACULTY", "ADMIN"
+  events   Event[]                       // This links the User to the Events they create
+}
+
+model Resource {
+  id       String    @id @default(cuid())
+  name     String    // e.g., "Main Hall"
+  type     String    // e.g., "ROOM" or "VEHICLE"
+  bookings Booking[] // Links the Resource to its schedule
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  startTime   DateTime
+  endTime     DateTime
+  status      String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  bookings    Booking[]
+}
+
+// This is the "Magic" table that checks for conflicts
+model Booking {
+  id         String   @id @default(cuid())
+  eventId    String
+  resourceId String
+  event      Event    @relation(fields: [eventId], references: [id])
+  resource   Resource @relation(fields: [resourceId], references: [id])
+}
