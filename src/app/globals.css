@@ -45,6 +45,11 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+
+
+    /* my addition */
+    --color-darkGrey:#2A2A2A;
 }
 
 :root {
@@ -126,4 +131,20 @@
   html {
     @apply font-sans;
     }
+}
+
+
+.calanderWeekHeading{
+
+  width: 14.28%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--card);
+  border-right-style: solid ;
+  border-left-style: none ;
+  border-top-style: none ;
+  border-bottom-style: none ;
+  border-width: 1px;
+  border-color: #2A2A2A;
 }

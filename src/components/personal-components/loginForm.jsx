@@ -34,7 +34,7 @@ import {
 
 
 import { useAuth } from "@/store/useAuth";
-import { authenticateUser } from "@/lib/actions";
+import { authenticateUser } from "@/lib/userAuth";
 import { toast } from "sonner";
 
 
@@ -76,12 +76,12 @@ const LoginForm = ({ className }) => {
 
         console.log("working");
         console.log(data);
-        
+
 
         const login = useAuth.getState().login; // Get the zustand login function
         const result = await authenticateUser(data);
+        console.log(result)
 
-            
 
 
 
@@ -102,17 +102,7 @@ const LoginForm = ({ className }) => {
 
 
 
-        // toast("We have received your request", {
-        //     position: "bottom-left",
-        //     description: "We will reach back to you shortly",
-        //     className: "text-white bg-black"
-
-        // })
-
-
-
-        // console.log(data)
-        form.reset()
+       
 
     }
 
@@ -123,95 +113,96 @@ const LoginForm = ({ className }) => {
 
 
     return (
-        <Card className={` lg:w-[400px] xl:w-[400px] ${className}`}>
+        <Card className={` lg:w-[400px] xl:w-[400px]
+        ${className}`}>
+
+            
+                <CardHeader>
+                    <CardTitle>Log In</CardTitle>
+                    <CardDescription>Enter your credentials to access the Uniflow resource portal.</CardDescription>
+                </CardHeader>
 
 
-            <CardHeader>
-                <CardTitle>Login</CardTitle>
-                <CardDescription>Enter the credentials to login into uniflow</CardDescription>
-            </CardHeader>
+                <CardContent>
+                    <form id="ContactUsForm" onSubmit={form.handleSubmit(onSubmit)}>
 
 
-            <CardContent>
-                <form id="ContactUsForm" onSubmit={form.handleSubmit(onSubmit)}>
-
-
-                    <FieldGroup>
-
-
-
-                        {/* name field */}
-                        <Controller
-                            name="userName"
-                            control={form.control}
-                            render={({ field, fieldState }) => (
-
-                                <Field data-invalid={fieldState.invalid}>
-
-
-                                    <FieldLabel htmlFor="LoginFormUserName">
-                                        Username
-                                    </FieldLabel>
-
-
-                                    <Input
-                                        {...field}
-                                        id="LoginFormUserName"
-                                        aria-invalid={fieldState.invalid}
-                                        placeholder="username"
-                                        autoComplete="off"
-                                    />
-                                    {fieldState.invalid && (
-                                        <FieldError errors={[fieldState.error]} />
-                                    )}
-                                </Field>
-                            )}
-                        />
+                        <FieldGroup>
 
 
 
+                            {/* name field */}
+                            <Controller
+                                name="userName"
+                                control={form.control}
+                                render={({ field, fieldState }) => (
 
-                        {/* Password field */}
-                        <Controller
-                            name="password"
-                            control={form.control}
-                            render={({ field, fieldState }) => (
-
-                                <Field data-invalid={fieldState.invalid}>
-
-
-                                    <FieldLabel htmlFor="LoginFormPassword">
-                                        Password
-                                    </FieldLabel>
+                                    <Field data-invalid={fieldState.invalid}>
 
 
-                                    <Input
-                                        {...field}
-                                        id="LoginFormPassword"
-                                        type={"password"}
-                                        aria-invalid={fieldState.invalid}
-                                        placeholder="password"
-                                        autoComplete="off"
-                                    />
-                                    {fieldState.invalid && (
-                                        <FieldError errors={[fieldState.error]} />
-                                    )}
-                                </Field>
-                            )}
-                        />
+                                        <FieldLabel htmlFor="LoginFormUserName">
+                                            Username
+                                        </FieldLabel>
+
+
+                                        <Input
+                                            {...field}
+                                            id="LoginFormUserName"
+                                            aria-invalid={fieldState.invalid}
+                                            placeholder="username"
+                                            autoComplete="off"
+                                        />
+                                        {fieldState.invalid && (
+                                            <FieldError errors={[fieldState.error]} />
+                                        )}
+                                    </Field>
+                                )}
+                            />
 
 
 
 
+                            {/* Password field */}
+                            <Controller
+                                name="password"
+                                control={form.control}
+                                render={({ field, fieldState }) => (
+
+                                    <Field data-invalid={fieldState.invalid}>
+
+
+                                        <FieldLabel htmlFor="LoginFormPassword">
+                                            Password
+                                        </FieldLabel>
+
+
+                                        <Input
+                                            {...field}
+                                            id="LoginFormPassword"
+                                            type={"password"}
+                                            aria-invalid={fieldState.invalid}
+                                            placeholder="password"
+                                            autoComplete="off"
+                                        />
+                                        {fieldState.invalid && (
+                                            <FieldError errors={[fieldState.error]} />
+                                        )}
+                                    </Field>
+                                )}
+                            />
 
 
 
 
 
-                    </FieldGroup>
-                </form>
-            </CardContent>
 
+
+
+
+                        </FieldGroup>
+                    </form>
+                </CardContent>
+            
 
             <CardFooter>
                 <Field orientation="horizontal">

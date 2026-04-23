@@ -1,7 +1,9 @@
 // 1. This tells Prisma to generate a JavaScript library for you
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"] // Add this line
 }
+
 
 // 2. This is the connection to your Docker container
 datasource db {

@@ -6,7 +6,7 @@ export async function authenticateUser(formData) {
     try {
         // 1. Look for the user in your Docker DB
         const user = await db.user.findUnique({
-            where: { email: formData.userName }, // Assuming email is the username
+            where: { username: formData.userName }, // Assuming email is the username
         });
 
         // 2. Check if user exists
