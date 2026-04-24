@@ -1,6 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-
+import Calander from "@/components/personal-components/Calander/Calander"
 
 const Workspace = () => {
 
@@ -10,7 +10,7 @@ const Workspace = () => {
         <SidebarProvider>
             <AppSidebar/>
             <div className=" w-full">
-                The workspace page
+                <Calander/>
             </div>
         </SidebarProvider>
     )
