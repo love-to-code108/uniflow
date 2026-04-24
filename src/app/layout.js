@@ -4,6 +4,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner"
 
 
+
+
 const inter = Inter({ subsets: ["latin"] });
 
 export default function RootLayout({ children }) {
@@ -16,8 +18,10 @@ export default function RootLayout({ children }) {
           enableSystem
           disableTransitionOnChange
         >
-           <Toaster />
+
+          <Toaster />
           {children}
+
         </ThemeProvider>
       </body>
     </html>
