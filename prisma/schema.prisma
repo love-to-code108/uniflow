@@ -19,34 +19,24 @@ model User {
   email    String   @unique
   username String   @unique             // Added for your login form
   password String                       // Added for your login form
-  role     String   @default("STUDENT") // "STUDENT", "FACULTY", "ADMIN"
-  events   Event[]                      // Links the User to the Events they create
+  role     String  // "STUDENT", "FACULTY", "ADMIN"
+  events   Event[] // Links the User to the Events they create
 }
 
-model Resource {
-  id       String    @id @default(cuid())
-  name     String    // e.g., "Main Hall"
-  type     String    // e.g., "ROOM" or "VEHICLE"
-  bookings Booking[] // Links the Resource to its schedule
+
+model Event{
+  id            String    @id @default(cuid())
+  name          String
+  description   String
+  userId        String
+  user          User    @relation(fields:[userId], references:[id])
+  date          String
+  startTime     String
+  endTime       String
+  expectedNumberOfStudnets    String
+  venue         String
+
 }
 
-model Event {
-  id          String    @id @default(cuid())
-  title       String
-  startTime   DateTime
-  endTime     DateTime
-  status      String    @default("PENDING") // "PENDING", "APPROVED", "REJECTED"
 
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  bookings    Booking[]
-}
 
-// This is the "Magic" table that checks for conflicts
-model Booking {
-  id         String   @id @default(cuid())
-  eventId    String
-  resourceId String
-  event      Event    @relation(fields: [eventId], references: [id])
-  resource   Resource @relation(fields: [resourceId], references: [id])
-}

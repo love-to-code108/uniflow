@@ -1,6 +1,6 @@
 "use client"
 
-import LoginForm from "@/components/personal-components/loginForm";
+import LoginForm from "@/components/personal-components/Auth/loginForm";
 import { ModeToggle } from "@/components/mode-toggle";
 import { toast } from "sonner";
 
