@@ -14,13 +14,13 @@ datasource db {
 // 3. THE MODELS (Your Database Tables)
 
 model User {
-  id       String   @id @default(cuid())
-  name     String
-  email    String   @unique
-  username String   @unique             // Added for your login form
-  password String                       // Added for your login form
-  role     String  // "STUDENT", "FACULTY", "ADMIN"
-  events   Event[] // Links the User to the Events they create
+  id              String   @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  username        String   @unique             
+  password        String                       
+  permissions     Json?  
+  events          Event[]
 }
 
 

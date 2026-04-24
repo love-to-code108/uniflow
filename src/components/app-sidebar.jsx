@@ -30,6 +30,15 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 // import { Button } from "./ui/button";
 
 import { Button } from "@/components/ui/button"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+import Form from "./personal-components/forms/CreateNewUserForm";
 
 
 
@@ -94,12 +103,38 @@ export function AppSidebar() {
 
                     <SidebarMenu>
                         <SidebarMenuItem>
-                            <SidebarMenuButton onClick={addUser}>
+                            {/* <SidebarMenuButton onClick={addUser}>
                                 <div className="w-full flex items-center justify-between hover:cursor-pointer">
                                     <p>Add User</p>
                                     <Plus/>
                                 </div>
-                            </SidebarMenuButton>
+                            </SidebarMenuButton> */}
+
+
+                            <Dialog>
+                                <DialogTrigger className={"w-full h-full "}>
+                                    <SidebarMenuButton className={"hover:cursor-pointer"}>
+                                        <div className="w-full flex items-center justify-between">
+                                            <p>Add User</p>
+                                            <Plus />
+                                        </div>
+                                    </SidebarMenuButton>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Add new user</DialogTitle>
+                                        <DialogDescription>
+                                            This will create a new user in the database.
+                                        </DialogDescription>
+                                    </DialogHeader>
+
+                                    <Form/>
+                                </DialogContent>
+                            </Dialog>
+
+
+
+
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>
