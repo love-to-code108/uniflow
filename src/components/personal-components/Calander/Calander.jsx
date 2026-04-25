@@ -109,13 +109,12 @@ export default function Calendar() {
   ];
 
 
+  var calander = useMemo(() => {
+    return getCalendarGrid(year, month)
+  }, [year, month])
+
 
   useEffect(() => {
-
-
-    // const now = new Date();
-    var calander = getCalendarGrid(year, month)
-
     console.log(calander);
     setPrintCalander(calander);
 
@@ -137,19 +136,6 @@ export default function Calendar() {
 
 
 
-  // const calendarGrid = useMemo(() => {
-  //   console.log("running useMemo");
-  //   return getCalendarGrid(year, month);
-  // }, [year,month]);
-
-
-
-
-
-
-
-
-
 
 
 
@@ -161,7 +147,7 @@ export default function Calendar() {
 
 
   return (
-    <div className='w-full h-full'>
+    <div className='w-full'>
 
 
       {/* calander */}
