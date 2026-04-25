@@ -35,10 +35,10 @@ export const calanderStore = create((set) => ({
     }),
 
     // This is a "Selector" or "Computed" property
-    // getMonthName: () => {
-    //     const { month, year } = get();
-    //     return new Date(year, month).toLocaleString('default', { month: 'long' });
-    // },
+    getMonthName: () => {
+        const { month, year } = get();
+        return new Date(year, month).toLocaleString('default', { month: 'long' });
+    }
 }))
 
 

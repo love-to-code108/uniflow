@@ -45,12 +45,11 @@ import { calanderStore } from '@/store/globalStates';
 
 export default function Calendar() {
 
-
+  const [printCalander, setPrintCalander] = useState([]);
 
 
 
   // the calander function
-
   const getCalendarGrid = (year, month) => {
     const dates = [];
     const firstDay = new Date(year, month, 1);
@@ -94,12 +93,6 @@ export default function Calendar() {
 
 
 
-
-  // useEffect(() => {
-
-  // }, [year, month])
-
-
   const year = calanderStore((state) => state.year)
   const month = calanderStore((state) => state.month);
 
@@ -108,18 +101,50 @@ export default function Calendar() {
   const nextMonth = calanderStore((state) => state.nextMonth)
   const prevMonth = calanderStore((state) => state.prevMonth);
 
-  
+
+
+  const monthName = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
 
 
 
-  const calendarGrid = useMemo(() => {
-    console.log("running useMemo");
-    return getCalendarGrid(year, month);
-  }, [year,month]);
+  useEffect(() => {
+
+
+    // const now = new Date();
+    var calander = getCalendarGrid(year, month)
+
+    console.log(calander);
+    setPrintCalander(calander);
+
+  }, [month, year])
 
 
 
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // const calendarGrid = useMemo(() => {
+  //   console.log("running useMemo");
+  //   return getCalendarGrid(year, month);
+  // }, [year,month]);
+
+
+
+
 
 
 
@@ -186,13 +211,16 @@ export default function Calendar() {
             <div className=' flex w-[300px] justify-around items-center'>
 
               {/* button with left arrow */}
-              <Button variant='outline' className={"rounded-full"}><ChevronLeft /></Button>
+              <Button variant='outline'
+                className={"rounded-full"}
+                onClick={prevMonth}
+              ><ChevronLeft /></Button>
 
 
               {/* current month and year */}
               <div className=' flex justify-center items-center text-2xl'>
-                <h1 className=' mr-2'>April</h1>
-                <h1>2026</h1>
+                <h1 className=' mr-2'>{monthName[month]}</h1>
+                <h1>{year}</h1>
               </div>
 
 
@@ -263,21 +291,13 @@ export default function Calendar() {
 
           {/* the days */}
           <div className='w-full grid grid-cols-7'>
-
-
-
-
-
             {
-              calendarGrid.map((value, index) => {
+              printCalander.map((value, index) => {
                 return (
                   <CalanderCell key={index} value={value} />
                 )
               })
             }
-
-
-
 
           </div>
 
