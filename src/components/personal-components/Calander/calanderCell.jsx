@@ -1,7 +1,7 @@
 import EventCell from "./EventCell";
 
 
-const CalanderCell = ({day,isCurrentMonth}) => {
+const CalanderCell = ({value}) => {
 
 
 
@@ -25,9 +25,9 @@ const CalanderCell = ({day,isCurrentMonth}) => {
 
                 {/* date */}
                 <div className=" w-full flex justify-end">
-                <p className={isCurrentMonth ? "text-foreground":"text-border"}
+                <p className={value.isCurrentMonth ? "text-foreground":"text-border"}
                 
-                >{day}</p>
+                >{value.day}</p>
                 </div>
 
                 <br />

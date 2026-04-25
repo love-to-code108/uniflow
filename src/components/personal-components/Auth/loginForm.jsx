@@ -33,7 +33,7 @@ import {
 
 
 
-import { useAuth } from "@/store/useAuth";
+import { useAuthStore } from "@/store/globalStates";
 import { authenticateUser } from "@/lib/userAuth";
 import { toast } from "sonner";
 
@@ -78,7 +78,7 @@ const LoginForm = ({ className }) => {
         console.log(data);
 
 
-        const login = useAuth.getState().login; // Get the zustand login function
+        const login = useAuthStore.getState().login; // Get the zustand login function
         const result = await authenticateUser(data);
         console.log(result)
 

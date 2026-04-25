@@ -1,56 +1,125 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CalanderCell from './calanderCell';
+import { calanderStore } from '@/store/globalStates';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 
 export default function Calendar() {
+
+
+
+
+
+  // the calander function
+
+  const getCalendarGrid = (year, month) => {
+    const dates = [];
+    const firstDay = new Date(year, month, 1);
+    const startOffset = firstDay.getDay(); // 0 (Sun) to 6 (Sat)
+
+    console.log("calander function");
+
+    // Calculate the last day of the month
+    // (Month + 1 with day 0 gives the last day of the current month)
+    const lastDay = new Date(year, month + 1, 0).getDate();
+
+    // Determine if we need 5 rows (35) or 6 rows (42)
+    // If the starting offset + the total days fits in 35, use 35.
+    const totalSlotsNeeded = startOffset + lastDay;
+    const numCells = totalSlotsNeeded <= 35 ? 35 : 42;
+
+    const startDate = new Date(firstDay);
+    startDate.setDate(firstDay.getDate() - startOffset);
+
+    for (let i = 0; i < numCells; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+
+      dates.push({
+        day: d.getDate(),
+        month: d.getMonth() + 1,
+        year: d.getFullYear(),
+        isCurrentMonth: d.getMonth() === month,
+        isToday: d.toDateString() === new Date().toDateString(),
+      });
+    }
+
+    return dates;
+  }
+
+
+
+
+
+
+
+
+
+
+  // useEffect(() => {
+
+  // }, [year, month])
+
+
+  const year = calanderStore((state) => state.year)
+  const month = calanderStore((state) => state.month);
+
+  console.log(month, year);
+
+  const nextMonth = calanderStore((state) => state.nextMonth)
+  const prevMonth = calanderStore((state) => state.prevMonth);
+
   
 
 
-  const april2026Grid = [
-  { day: 29, month: 3, year: 2026, weekday: "Sunday", isCurrentMonth: false },
-  { day: 30, month: 3, year: 2026, weekday: "Monday", isCurrentMonth: false },
-  { day: 31, month: 3, year: 2026, weekday: "Tuesday", isCurrentMonth: false },
-  { day: 1, month: 4, year: 2026, weekday: "Wednesday", isCurrentMonth: true },
-  { day: 2, month: 4, year: 2026, weekday: "Thursday", isCurrentMonth: true },
-  { day: 3, month: 4, year: 2026, weekday: "Friday", isCurrentMonth: true },
-  { day: 4, month: 4, year: 2026, weekday: "Saturday", isCurrentMonth: true },
-  { day: 5, month: 4, year: 2026, weekday: "Sunday", isCurrentMonth: true },
-  { day: 6, month: 4, year: 2026, weekday: "Monday", isCurrentMonth: true },
-  { day: 7, month: 4, year: 2026, weekday: "Tuesday", isCurrentMonth: true },
-  { day: 8, month: 4, year: 2026, weekday: "Wednesday", isCurrentMonth: true },
-  { day: 9, month: 4, year: 2026, weekday: "Thursday", isCurrentMonth: true },
-  { day: 10, month: 4, year: 2026, weekday: "Friday", isCurrentMonth: true },
-  { day: 11, month: 4, year: 2026, weekday: "Saturday", isCurrentMonth: true },
-  { day: 12, month: 4, year: 2026, weekday: "Sunday", isCurrentMonth: true },
-  { day: 13, month: 4, year: 2026, weekday: "Monday", isCurrentMonth: true },
-  { day: 14, month: 4, year: 2026, weekday: "Tuesday", isCurrentMonth: true },
-  { day: 15, month: 4, year: 2026, weekday: "Wednesday", isCurrentMonth: true },
-  { day: 16, month: 4, year: 2026, weekday: "Thursday", isCurrentMonth: true },
-  { day: 17, month: 4, year: 2026, weekday: "Friday", isCurrentMonth: true },
-  { day: 18, month: 4, year: 2026, weekday: "Saturday", isCurrentMonth: true },
-  { day: 19, month: 4, year: 2026, weekday: "Sunday", isCurrentMonth: true },
-  { day: 20, month: 4, year: 2026, weekday: "Monday", isCurrentMonth: true },
-  { day: 21, month: 4, year: 2026, weekday: "Tuesday", isCurrentMonth: true },
-  { day: 22, month: 4, year: 2026, weekday: "Wednesday", isCurrentMonth: true },
-  { day: 23, month: 4, year: 2026, weekday: "Thursday", isCurrentMonth: true },
-  { day: 24, month: 4, year: 2026, weekday: "Friday", isCurrentMonth: true },
-  { day: 25, month: 4, year: 2026, weekday: "Saturday", isCurrentMonth: true },
-  { day: 26, month: 4, year: 2026, weekday: "Sunday", isCurrentMonth: true },
-  { day: 27, month: 4, year: 2026, weekday: "Monday", isCurrentMonth: true },
-  { day: 28, month: 4, year: 2026, weekday: "Tuesday", isCurrentMonth: true },
-  { day: 29, month: 4, year: 2026, weekday: "Wednesday", isCurrentMonth: true },
-  { day: 30, month: 4, year: 2026, weekday: "Thursday", isCurrentMonth: true },
-  { day: 1, month: 5, year: 2026, weekday: "Friday", isCurrentMonth: false },
-  { day: 2, month: 5, year: 2026, weekday: "Saturday", isCurrentMonth: false },
-];
+
+  const calendarGrid = useMemo(() => {
+    console.log("running useMemo");
+    return getCalendarGrid(year, month);
+  }, [year,month]);
 
 
+
+  
 
 
 
@@ -81,7 +150,7 @@ export default function Calendar() {
 
         {/* upper container */}
         {/* the upper bar containing the filters and the month and the year */}
-        <div className=' flex mt-4 mb-8'>
+        <div className=' flex mt-4 mb-4 px-[20px]'>
 
           {/* the filters */}
           <div className=' w-[50%] flex justify-start'>
@@ -128,7 +197,11 @@ export default function Calendar() {
 
 
               {/* button with right arrow */}
-              <Button variant='outline' className={"rounded-full"}><ChevronRight /></Button>
+              <Button
+                variant='outline'
+                className={"rounded-full"}
+                onClick={nextMonth}
+              ><ChevronRight /></Button>
             </div>
 
 
@@ -190,10 +263,22 @@ export default function Calendar() {
 
           {/* the days */}
           <div className='w-full grid grid-cols-7'>
-            {april2026Grid.map((value,index) => {
 
-              return(<CalanderCell key={index} day={value.day} isCurrentMonth={value.isCurrentMonth}/>);
-            })}
+
+
+
+
+            {
+              calendarGrid.map((value, index) => {
+                return (
+                  <CalanderCell key={index} value={value} />
+                )
+              })
+            }
+
+
+
+
           </div>
 
 
@@ -206,3 +291,12 @@ export default function Calendar() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
