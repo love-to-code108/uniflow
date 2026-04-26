@@ -23,16 +23,7 @@ import {
 
 import { Input } from "@/components/ui/input"
 
-import {
-    InputGroup,
-    InputGroupAddon,
-    InputGroupText,
-    InputGroupTextarea,
-} from "@/components/ui/input-group"
-
-
-
-
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/globalStates";
 import { authenticateUser } from "@/lib/userAuth";
 import { toast } from "sonner";
@@ -69,6 +60,9 @@ const LoginForm = ({ className }) => {
         }
     })
 
+    const router = useRouter()
+
+
 
 
 
@@ -89,10 +83,13 @@ const LoginForm = ({ className }) => {
 
         if (result.success) {
             toast.success("Success!", {
-                description: `Welcome back, ${result.user.name}`,
+                description: `Welcome back, ${result.user.username}`,
             });
             login(result.user); // Save user to Zustand
             // Here you would use router.push('/dashboard') to move the user
+
+            router.push('/workspace')
+
         } else {
             toast.error("Login Failed", {
                 description: result.message,
