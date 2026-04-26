@@ -131,9 +131,9 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
         // --- THE TIMEZONE FIX ---
         // Grab the date they picked, and force the time to 12:00 PM (Noon) local time
         const safeDate = new Date(
-            data.eventDate.getFullYear(), 
-            data.eventDate.getMonth(), 
-            data.eventDate.getDate(), 
+            data.eventDate.getFullYear(),
+            data.eventDate.getMonth(),
+            data.eventDate.getDate(),
             12, 0, 0
         );
 
@@ -156,7 +156,7 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
         // 3. Handle standard backend flags
         if (response.status === "SUCCESS") {
             toast.success(`Event requested in ${response.venue}!`);
-            onSuccess(false); 
+            onSuccess(false);
         }
         else if (response.status === "CAPACITY_WARNING") {
             toast(response.message, {
@@ -191,7 +191,7 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
         }
 
 
-        
+
     }
 
 
@@ -419,46 +419,100 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
 // --- 3. MAIN CALENDAR CELL COMPONENT ---
 
 const CalanderCell = ({ value }) => {
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    // 1. Upgraded State: Instead of true/false, we track WHICH modal is open
+    const [activeModal, setActiveModal] = useState(null);
+
+    // 2. Fetch the user's permissions directly from your Zustand store
+    const user = useAuthStore((state) => state.user);
+    const permissions = user?.permissions || {};
 
     const preFilledDate = new Date(value.year, value.month - 1, value.day);
 
     return (
+        <>
+            {/* --- THE CONTEXT MENU WRAPPER --- */}
+            <ContextMenu>
+                {/* asChild allows the ContextMenu to attach to our custom div */}
+                <ContextMenuTrigger asChild>
+                    <div
+                        // The Left-Click Shortcut
+                        onClick={() => setActiveModal("event")}
+                        className="flex w-full min-h-[180px] border-r-[1px] border-b-[1px] border-border cursor-pointer  hover:bg-muted/50"
+                    >
+                        <div className="w-full py-2 px-4">
+                            <div className="w-full flex justify-end">
+                                <p className={value.isCurrentMonth ? "text-foreground font-medium" : "text-muted-foreground"}>
+                                    {value.day}
+                                </p>
+                            </div>
+                            <br />
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-
-            <DialogTrigger asChild>
-                <div className="flex w-full min-h-[180px] border-r-[1px] border-b-[1px] border-border cursor-pointer">
-                    <div className="bg-background w-full py-2 px-4 hover:bg-primary-foreground">
-
-                        <div className="w-full flex justify-end">
-                            <p className={value.isCurrentMonth ? "text-foreground" : "text-muted"}>
-                                {value.day}
-                            </p>
+                            {/* Future Event Cells will go here. 
+                                We will use e.stopPropagation() on them later! */}
+                            <EventCell />
                         </div>
-                        <br />
-
-                        <EventCell />
                     </div>
-                </div>
-            </DialogTrigger>
+                </ContextMenuTrigger>
 
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle>Create new event</DialogTitle>
-                    <DialogDescription>
-                        Fill in the details below to schedule an event.
-                    </DialogDescription>
-                </DialogHeader>
+                {/* --- THE DYNAMIC RIGHT-CLICK MENU --- */}
+                <ContextMenuContent className="w-56">
+                    <ContextMenuItem onClick={() => setActiveModal("event")}>
+                        Request Event
+                    </ContextMenuItem>
 
-                <CreateEventForm
-                    preFilledDate={preFilledDate}
-                onSuccess={() => setIsDialogOpen(false)}
-                />
+                    {/* Conditional rendering based on exact DB keys */}
+                    {permissions.can_request_for_vehicles && (
+                        <ContextMenuItem onClick={() => setActiveModal("vehicle")}>
+                            Request Vehicle
+                        </ContextMenuItem>
+                    )}
 
-            </DialogContent>
-        </Dialog>
+                    {permissions.can_request_guest_room && (
+                        <ContextMenuItem onClick={() => setActiveModal("lodging")}>
+                            Request Guest Lodging
+                        </ContextMenuItem>
+                    )}
+                </ContextMenuContent>
+            </ContextMenu>
 
+
+            {/* --- THE MODALS --- */}
+            {/* Event Modal */}
+            <Dialog open={activeModal === "event"} onOpenChange={(open) => !open && setActiveModal(null)}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle>Create new event</DialogTitle>
+                        <DialogDescription>
+                            Fill in the details below to schedule an event.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <CreateEventForm
+                        preFilledDate={preFilledDate}
+                        onSuccess={() => setActiveModal(null)}
+                    />
+                </DialogContent>
+            </Dialog>
+
+            {/* Vehicle Modal (Placeholder for now) */}
+            <Dialog open={activeModal === "vehicle"} onOpenChange={(open) => !open && setActiveModal(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Request a Vehicle</DialogTitle>
+                        <DialogDescription>Vehicle form coming soon.</DialogDescription>
+                    </DialogHeader>
+                </DialogContent>
+            </Dialog>
+
+            {/* Lodging Modal (Placeholder for now) */}
+            <Dialog open={activeModal === "lodging"} onOpenChange={(open) => !open && setActiveModal(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Request Guest Lodging</DialogTitle>
+                        <DialogDescription>Lodging form coming soon.</DialogDescription>
+                    </DialogHeader>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 };
 
