@@ -60,7 +60,7 @@ import {
     ContextMenuTrigger,
     ContextMenuSeparator,
 } from "@/components/ui/context-menu";
-
+import { submitVehicleRequest } from "@/actions/vehicles";
 
 
 // --- 1. DATA & SCHEMA CONFIGURATION ---
@@ -82,6 +82,14 @@ const timeSlots = [
     { label: "4:30 PM", value: "16:30" },
 ];
 
+
+
+
+
+
+
+
+
 const formSchema = z.object({
     eventName: z.string().min(1, "Event Name is required"),
     eventDescription: z.string().optional(),
@@ -93,6 +101,7 @@ const formSchema = z.object({
     expectedStudents: z.coerce.number().min(1, "Must be at least 1 student"),
     registrationLink: z.string().url("Must be a valid URL").or(z.literal('')),
 });
+
 
 
 // --- 2. SEPARATED FORM COMPONENT ---
@@ -193,13 +202,6 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
 
 
     }
-
-
-
-
-
-
-
 
 
 
@@ -416,6 +418,249 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
 
 
 
+// --- VEHICLE ZOD SCHEMA ---
+const vehicleFormSchema = z.object({
+    vehicleId: z.string().min(1, "Please select a vehicle"),
+    eventDate: z.date({
+        required_error: "Please select a date",
+    }),
+    startTime: z.string().min(1, "Start time is required"),
+    endTime: z.string().min(1, "End time is required"),
+    destination: z.string().min(1, "Destination is required"),
+    purpose: z.string().min(1, "Purpose of the trip is required"),
+});
+
+// --- VEHICLE FORM COMPONENT ---
+const CreateVehicleForm = ({ preFilledDate, onSuccess }) => {
+    const form = useForm({
+        resolver: zodResolver(vehicleFormSchema),
+        defaultValues: {
+            vehicleId: "",
+            eventDate: preFilledDate,
+            startTime: "",
+            endTime: "",
+            destination: "",
+            purpose: "",
+        }
+    });
+
+    const selectedStartTime = form.watch("startTime");
+
+    // Dynamically filter end times
+    const availableEndTimes = selectedStartTime
+        ? timeSlots.filter(slot => slot.value > selectedStartTime)
+        : timeSlots;
+
+    const onSubmit = async (data) => {
+        const safeDate = new Date(data.eventDate.getFullYear(), data.eventDate.getMonth(), data.eventDate.getDate(), 12, 0, 0);
+        const payload = { ...data, eventDate: safeDate };
+
+        const response = await submitVehicleRequest(payload);
+
+        if (response.status === "ERROR") {
+            toast.error(response.message);
+            return;
+        }
+
+        if (response.status === "SUCCESS") {
+            toast.success("Vehicle request submitted successfully!");
+            if (onSuccess) onSuccess(false);
+        }
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return (
+        <form id="createVehicleForm" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
+            <FieldGroup>
+
+                {/* Vehicle Selection */}
+                <Controller
+                    name="vehicleId"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor="vehicleId">Select Vehicle</FieldLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <SelectTrigger id="vehicleId" aria-invalid={fieldState.invalid}>
+                                    <SelectValue placeholder="Choose a vehicle" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="1a">Kia Carens</SelectItem>
+                                    <SelectItem value="1b">Toyota Innova</SelectItem>
+                                    <SelectItem value="1c">Maruti Ertiga</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                    )}
+                />
+
+                {/* Date Picker */}
+                <Controller
+                    name="eventDate"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor="eventDate">Date Required</FieldLabel>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="eventDate"
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                        aria-invalid={fieldState.invalid}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={field.onChange}
+                                        disabled={(date) => date < today}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                    )}
+                />
+
+                {/* Time Selectors */}
+                <div className="grid grid-cols-2 gap-4">
+                    <Controller
+                        name="startTime"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="startTime">Start Time</FieldLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger id="startTime" aria-invalid={fieldState.invalid}>
+                                        <SelectValue placeholder="Select start time" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {timeSlots.map((slot) => (
+                                            <SelectItem key={`start-${slot.value}`} value={slot.value}>
+                                                {slot.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+
+                    <Controller
+                        name="endTime"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="endTime">End Time</FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                    disabled={!selectedStartTime}
+                                >
+                                    <SelectTrigger id="endTime" aria-invalid={fieldState.invalid}>
+                                        <SelectValue placeholder="Select end time" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableEndTimes.map((slot) => (
+                                            <SelectItem key={`end-${slot.value}`} value={slot.value}>
+                                                {slot.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+                </div>
+
+                {/* Destination & Purpose */}
+                <div className="grid grid-cols-2 gap-4">
+                    <Controller
+                        name="destination"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="destination">Destination</FieldLabel>
+                                <Input
+                                    {...field}
+                                    id="destination"
+                                    placeholder="e.g., Tech Park"
+                                    aria-invalid={fieldState.invalid}
+                                />
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+
+                    <Controller
+                        name="purpose"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="purpose">Purpose</FieldLabel>
+                                <Input
+                                    {...field}
+                                    id="purpose"
+                                    placeholder="e.g., Guest Pickup"
+                                    aria-invalid={fieldState.invalid}
+                                />
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+                </div>
+
+            </FieldGroup>
+
+            <div className="w-full flex justify-end pt-4">
+                <Button type="submit" form="createVehicleForm">Submit Request</Button>
+            </div>
+        </form>
+    );
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // --- 3. MAIN CALENDAR CELL COMPONENT ---
 
 const CalanderCell = ({ value }) => {
@@ -493,15 +738,32 @@ const CalanderCell = ({ value }) => {
                 </DialogContent>
             </Dialog>
 
+
+
+
+
+
             {/* Vehicle Modal (Placeholder for now) */}
             <Dialog open={activeModal === "vehicle"} onOpenChange={(open) => !open && setActiveModal(null)}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle>Request a Vehicle</DialogTitle>
-                        <DialogDescription>Vehicle form coming soon.</DialogDescription>
+                        <DialogDescription>
+                            Submit a request for transportation. Subject to admin approval.
+                        </DialogDescription>
                     </DialogHeader>
+
+                    {/* Drop it right here! */}
+                    <CreateVehicleForm
+                        preFilledDate={preFilledDate}
+                        onSuccess={() => setActiveModal(null)}
+                    />
+
                 </DialogContent>
             </Dialog>
+
+
+
 
             {/* Lodging Modal (Placeholder for now) */}
             <Dialog open={activeModal === "lodging"} onOpenChange={(open) => !open && setActiveModal(null)}>
