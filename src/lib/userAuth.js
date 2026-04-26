@@ -1,25 +1,48 @@
-"use server"; // This is the secret sauce. This code NEVER goes to the browser.
+"use server"; 
 
-import { db } from "./db"; // Your Prisma singleton
+import { db } from "./db"; 
+import { SignJWT } from "jose";
+import { cookies } from "next/headers";
+
+// Encode the secret key for jose
+const secretKey = process.env.JWT_SECRET;
+const encodedKey = new TextEncoder().encode(secretKey);
 
 export async function authenticateUser(formData) {
     try {
-        // 1. Look for the user in your Docker DB
         const user = await db.user.findUnique({
-            where: { username: formData.userName }, // Assuming email is the username
+            where: { username: formData.userName }, 
         });
 
-        // 2. Check if user exists
         if (!user) {
             return { success: false, message: "User not found" };
         }
 
-        // 3. Check password (In Demo v1, we check plain text. In v2, we'll hash!)
         if (user.password !== formData.password) {
             return { success: false, message: "Incorrect password" };
         }
 
-        // 4. Success! Return the user data (but hide the password)
+        // --- THE NEW SECURE COOKIE SAUCE ---
+        // 1. Create a minimal payload (just the ID, never the password)
+        const payload = { userId: user.id };
+
+        // 2. Sign the JWT Token
+        const sessionToken = await new SignJWT(payload)
+            .setProtectedHeader({ alg: 'HS256' })
+            .setIssuedAt()
+            .setExpirationTime('7d') // Keeps them logged in for 1 week
+            .sign(encodedKey);
+
+        // 3. Drop the secure cookie (Notice the await!)
+        const cookieStore = await cookies();
+        cookieStore.set("session", sessionToken, {
+            httpOnly: true, // Prevents JS access (Crucial for security)
+            secure: process.env.NODE_ENV === "production", // HTTPS only in prod
+            sameSite: "lax",
+            path: "/",
+        });
+        // -----------------------------------
+
         const { password, ...userWithoutPassword } = user;
         return { success: true, user: userWithoutPassword };
 

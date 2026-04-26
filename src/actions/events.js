@@ -1,0 +1,139 @@
+"use server"
+
+import { db } from "@/lib/db"; 
+import { withPermissions } from "@/actions/gatekeeper"; // Make sure this path matches where you saved gatekeeper.js
+
+// 1. The Core Logic (Now accepts userId as the first argument!)
+const processEventRequest = async (userId, formData, flags = {}) => {
+    try {
+        const {
+            eventName,
+            eventDescription,
+            eventDate,
+            startTime,
+            endTime,
+            expectedStudents,
+            registrationLink
+        } = formData;
+
+        // Fetch the user to check for the priority override
+        const user = await db.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
+        const hasPriority = user?.permissions?.has_priority === true;
+
+        // Determine the Ideal Venue based on capacity
+        let targetVenue = "Auditorium 1";
+        if (expectedStudents > 200 && expectedStudents <= 300) targetVenue = "Auditorium 3";
+        if (expectedStudents > 100 && expectedStudents <= 200) targetVenue = "Auditorium 2";
+
+        // Handle 300+ Capacity Edge Case
+        if (expectedStudents > 300) {
+            targetVenue = "Auditorium 3"; 
+
+            if (!hasPriority && !flags.forceCapacity) {
+                return { 
+                    status: "CAPACITY_WARNING", 
+                    message: "The college cannot comfortably accommodate over 300 students. Proceed anyway?" 
+                };
+            }
+        }
+
+        if (flags.acceptedVenue) {
+            targetVenue = flags.acceptedVenue;
+        }
+
+        // Database Creation Helper
+        const createPendingEvent = async (venueToBook) => {
+            await db.event.create({
+                data: {
+                    name: eventName,
+                    description: eventDescription || "",
+                    date: eventDate, // Passed as a string from your Zod transform
+                    startTime: startTime,
+                    endTime: endTime,
+                    expectedNumberOfStudents: expectedStudents, 
+                    venue: venueToBook,
+                    registrationLink: registrationLink || null,
+                    status: "pending", 
+                    userId: userId
+                }
+            });
+        };
+
+        // Priority Override Bypass
+        if (hasPriority) {
+            await createPendingEvent(targetVenue);
+            return { status: "SUCCESS", venue: targetVenue };
+        }
+
+        // Availability Checker
+        const checkAvailability = async (venueToCheck) => {
+            const overlappingEvents = await db.event.findMany({
+                where: {
+                    date: eventDate,
+                    venue: venueToCheck,
+                    status: "approved", 
+                    AND: [
+                        { startTime: { lt: endTime } }, 
+                        { endTime: { gt: startTime } }  
+                    ]
+                }
+            });
+            return overlappingEvents.length === 0;
+        };
+
+        // Check the Target Venue
+        const isTargetFree = await checkAvailability(targetVenue);
+        
+        if (isTargetFree) {
+            await createPendingEvent(targetVenue);
+            return { status: "SUCCESS", venue: targetVenue };
+        }
+
+        // The Fallback Loop 
+        if (!flags.acceptedVenue) {
+            const fallbacks = [];
+            if (targetVenue === "Auditorium 1") fallbacks.push("Auditorium 2", "Auditorium 3");
+            if (targetVenue === "Auditorium 2") fallbacks.push("Auditorium 3");
+
+            for (const fallbackVenue of fallbacks) {
+                const isFallbackFree = await checkAvailability(fallbackVenue);
+                if (isFallbackFree) {
+                    return { 
+                        status: "ALTERNATIVE_AVAILABLE", 
+                        suggestedVenue: fallbackVenue 
+                    };
+                }
+            }
+        }
+
+        // Ultimate Failure State
+        return { 
+            status: "NO_VENUES", 
+            message: "All auditoriums are booked for this time slot." 
+        };
+
+    } catch (error) {
+        console.error("Error creating event request:", error);
+        return { status: "ERROR", message: "Internal Server Error" };
+    }
+};
+
+// --------------------------------------------------------
+// THE MAGIC GATEKEEPER
+// We wrap our function and demand the "can_request_event" permission.
+// This is what gets exported and called by your frontend.
+// --------------------------------------------------------
+// --------------------------------------------------------
+// THE MAGIC GATEKEEPER (Next.js Strict Mode Fix)
+// --------------------------------------------------------
+export async function submitEventRequest(formData, flags = {}) {
+    // 1. Initialize the Gatekeeper
+    const secureAction = await withPermissions("can_request_event", processEventRequest);
+    
+    // 2. Execute it with the form data
+    return await secureAction(formData, flags);
+}

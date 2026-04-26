@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { submitEventRequest } from "@/actions/events";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,12 @@ import {
 } from "@/components/ui/input-group";
 
 import EventCell from "./EventCell";
+
+import { useAuthStore } from "@/store/globalStates";
+import { toast } from "sonner";
+
+
+
 
 // --- 1. DATA & SCHEMA CONFIGURATION ---
 
@@ -104,10 +111,73 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
         ? timeSlots.filter(slot => slot.value > selectedStartTime)
         : timeSlots;
 
-    const onSubmit = (data) => {
-        console.log("Submitted Event Data:", data);
-        // if (onSuccess) onSuccess();
-    };
+    // const onSubmit = (data) => {
+    //     console.log("Submitted Event Data:", data);
+    //     if (onSuccess) onSuccess();
+    // };
+
+    // const user = useAuthStore((state) => state.user)
+
+
+    const onSubmit = async (data) => {
+        // We no longer need to pass user.id from Zustand into the payload!
+        // The Gatekeeper handles identity automatically via the secure cookie.
+        
+        // 1. Initial attempt
+        const response = await submitEventRequest(data);
+
+        // 2. Handle Gatekeeper Rejections
+        if (response.status === "ERROR") {
+            toast.error(response.message); // Will show "Unauthorized" or "Forbidden"
+            return; // Stop execution
+        }
+
+        // 3. Handle standard backend flags
+        if (response.status === "SUCCESS") {
+            toast.success(`Event requested in ${response.venue}!`);
+            setIsDialogOpen(false); 
+        }
+        else if (response.status === "CAPACITY_WARNING") {
+            toast(response.message, {
+                action: {
+                    label: "Accept & Proceed",
+                    onClick: async () => {
+                        const forcedRes = await submitEventRequest(data, { forceCapacity: true });
+                        if (forcedRes.status === "SUCCESS") {
+                            toast.success("Event request submitted despite capacity limits.");
+                            setIsDialogOpen(false);
+                        }
+                    }
+                }
+            });
+        }
+        else if (response.status === "ALTERNATIVE_AVAILABLE") {
+            toast(`Target auditorium is full. Request ${response.suggestedVenue} instead?`, {
+                action: {
+                    label: `Book ${response.suggestedVenue}`,
+                    onClick: async () => {
+                        const altRes = await submitEventRequest(data, { acceptedVenue: response.suggestedVenue });
+                        if (altRes.status === "SUCCESS") {
+                            toast.success(`Event requested in ${response.suggestedVenue}!`);
+                            setIsDialogOpen(false);
+                        }
+                    }
+                }
+            });
+        }
+        else if (response.status === "NO_VENUES") {
+            toast.error(response.message);
+        }
+    }
+
+
+
+
+
+
+
+
+
 
     // Calculate today's date with time set to 00:00:00 to disable past days
     const today = new Date();
@@ -298,6 +368,30 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
 };
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // --- 3. MAIN CALENDAR CELL COMPONENT ---
 
 const CalanderCell = ({ value }) => {
@@ -306,41 +400,41 @@ const CalanderCell = ({ value }) => {
     const preFilledDate = new Date(value.year, value.month - 1, value.day);
 
     return (
-        
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
 
-                <DialogTrigger asChild>
-                    <div className="flex w-full min-h-[180px] border-r-[1px] border-b-[1px] border-border cursor-pointer">
-                        <div className="bg-background w-full py-2 px-4 hover:bg-primary-foreground">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
 
-                            <div className="w-full flex justify-end">
-                                <p className={value.isCurrentMonth ? "text-foreground" : "text-muted"}>
-                                    {value.day}
-                                </p>
-                            </div>
-                            <br />
+            <DialogTrigger asChild>
+                <div className="flex w-full min-h-[180px] border-r-[1px] border-b-[1px] border-border cursor-pointer">
+                    <div className="bg-background w-full py-2 px-4 hover:bg-primary-foreground">
 
-                            <EventCell />
+                        <div className="w-full flex justify-end">
+                            <p className={value.isCurrentMonth ? "text-foreground" : "text-muted"}>
+                                {value.day}
+                            </p>
                         </div>
+                        <br />
+
+                        <EventCell />
                     </div>
-                </DialogTrigger>
+                </div>
+            </DialogTrigger>
 
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>Create new event</DialogTitle>
-                        <DialogDescription>
-                            Fill in the details below to schedule an event.
-                        </DialogDescription>
-                    </DialogHeader>
+            <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                    <DialogTitle>Create new event</DialogTitle>
+                    <DialogDescription>
+                        Fill in the details below to schedule an event.
+                    </DialogDescription>
+                </DialogHeader>
 
-                    <CreateEventForm
-                        preFilledDate={preFilledDate}
-                        // onSuccess={() => setIsDialogOpen(false)}
-                    />
+                <CreateEventForm
+                    preFilledDate={preFilledDate}
+                // onSuccess={() => setIsDialogOpen(false)}
+                />
 
-                </DialogContent>
-            </Dialog>
-        
+            </DialogContent>
+        </Dialog>
+
     );
 };
 

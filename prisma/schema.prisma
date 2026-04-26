@@ -33,9 +33,10 @@ model Event{
   date          String
   startTime     String
   endTime       String
-  expectedNumberOfStudnets    String
+  expectedNumberOfStudnets    Int
   venue         String
-  registrationLink    String
+  registrationLink    String?
+  status String @default("pending")
 
 }
 
