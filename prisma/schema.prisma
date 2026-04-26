@@ -30,10 +30,10 @@ model Event{
   description   String
   userId        String
   user          User    @relation(fields:[userId], references:[id])
-  date          String
+  date          DateTime
   startTime     String
   endTime       String
-  expectedNumberOfStudnets    Int
+  expectedNumberOfStudents    Int
   venue         String
   registrationLink    String?
   status String @default("pending")

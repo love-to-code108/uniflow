@@ -3,7 +3,7 @@
 import { db } from "@/lib/db"; 
 import { withPermissions } from "@/actions/gatekeeper"; // Make sure this path matches where you saved gatekeeper.js
 
-// 1. The Core Logic (Now accepts userId as the first argument!)
+// 1. The Core Logic
 const processEventRequest = async (userId, formData, flags = {}) => {
     try {
         const {
@@ -15,6 +15,19 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             expectedStudents,
             registrationLink
         } = formData;
+
+        // --- FIX 1: THE TIME MACHINE BLOCKER ---
+        // Ensure the date isn't in the past (ignoring the specific hour/minute)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (eventDate < today) {
+            return { 
+                status: "ERROR", 
+                message: "Cannot schedule an event in the past." 
+            };
+        }
+        // ---------------------------------------
 
         // Fetch the user to check for the priority override
         const user = await db.user.findUnique({
@@ -51,7 +64,7 @@ const processEventRequest = async (userId, formData, flags = {}) => {
                 data: {
                     name: eventName,
                     description: eventDescription || "",
-                    date: eventDate, // Passed as a string from your Zod transform
+                    date: eventDate, 
                     startTime: startTime,
                     endTime: endTime,
                     expectedNumberOfStudents: expectedStudents, 
@@ -69,13 +82,14 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             return { status: "SUCCESS", venue: targetVenue };
         }
 
-        // Availability Checker
+        // --- FIX 2: THE PHANTOM BOOKING BLOCKER ---
         const checkAvailability = async (venueToCheck) => {
             const overlappingEvents = await db.event.findMany({
                 where: {
                     date: eventDate,
                     venue: venueToCheck,
-                    status: "approved", 
+                    // Now blocks if the slot is taken by either an approved OR a pending event
+                    status: { in: ["pending", "approved"] }, 
                     AND: [
                         { startTime: { lt: endTime } }, 
                         { endTime: { gt: startTime } }  
@@ -84,6 +98,7 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             });
             return overlappingEvents.length === 0;
         };
+        // ------------------------------------------
 
         // Check the Target Venue
         const isTargetFree = await checkAvailability(targetVenue);
@@ -131,9 +146,14 @@ const processEventRequest = async (userId, formData, flags = {}) => {
 // THE MAGIC GATEKEEPER (Next.js Strict Mode Fix)
 // --------------------------------------------------------
 export async function submitEventRequest(formData, flags = {}) {
-    // 1. Initialize the Gatekeeper
-    const secureAction = await withPermissions("can_request_event", processEventRequest);
-    
-    // 2. Execute it with the form data
-    return await secureAction(formData, flags);
+    try {
+        // We await the wrapper to get the inner function
+        const secureAction = await withPermissions("can_request_event", processEventRequest);
+        
+        // Then we call that inner function with the data
+        return await secureAction(formData, flags);
+    } catch (error) {
+        console.error("Action Wrapper Error:", error);
+        return { status: "ERROR", message: "Failed to process request." };
+    }
 }

@@ -135,7 +135,7 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
         // 3. Handle standard backend flags
         if (response.status === "SUCCESS") {
             toast.success(`Event requested in ${response.venue}!`);
-            setIsDialogOpen(false); 
+            onSuccess(false); 
         }
         else if (response.status === "CAPACITY_WARNING") {
             toast(response.message, {
@@ -145,7 +145,7 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
                         const forcedRes = await submitEventRequest(data, { forceCapacity: true });
                         if (forcedRes.status === "SUCCESS") {
                             toast.success("Event request submitted despite capacity limits.");
-                            setIsDialogOpen(false);
+                            onSuccess(false);
                         }
                     }
                 }
@@ -159,7 +159,7 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
                         const altRes = await submitEventRequest(data, { acceptedVenue: response.suggestedVenue });
                         if (altRes.status === "SUCCESS") {
                             toast.success(`Event requested in ${response.suggestedVenue}!`);
-                            setIsDialogOpen(false);
+                            onSuccess(false);
                         }
                     }
                 }
@@ -168,6 +168,9 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
         else if (response.status === "NO_VENUES") {
             toast.error(response.message);
         }
+
+
+        
     }
 
 
@@ -429,7 +432,7 @@ const CalanderCell = ({ value }) => {
 
                 <CreateEventForm
                     preFilledDate={preFilledDate}
-                // onSuccess={() => setIsDialogOpen(false)}
+                onSuccess={() => setIsDialogOpen(false)}
                 />
 
             </DialogContent>
