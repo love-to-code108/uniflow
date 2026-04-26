@@ -35,6 +35,7 @@ model Event{
   endTime       String
   expectedNumberOfStudnets    String
   venue         String
+  registrationLink    String
 
 }
 
