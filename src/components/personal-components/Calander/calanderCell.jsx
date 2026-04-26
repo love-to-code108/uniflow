@@ -53,6 +53,14 @@ import { useAuthStore } from "@/store/globalStates";
 import { toast } from "sonner";
 
 
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+    ContextMenuSeparator,
+} from "@/components/ui/context-menu";
+
 
 
 // --- 1. DATA & SCHEMA CONFIGURATION ---
@@ -120,11 +128,24 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
 
 
     const onSubmit = async (data) => {
-        // We no longer need to pass user.id from Zustand into the payload!
-        // The Gatekeeper handles identity automatically via the secure cookie.
-        
-        // 1. Initial attempt
-        const response = await submitEventRequest(data);
+        // --- THE TIMEZONE FIX ---
+        // Grab the date they picked, and force the time to 12:00 PM (Noon) local time
+        const safeDate = new Date(
+            data.eventDate.getFullYear(), 
+            data.eventDate.getMonth(), 
+            data.eventDate.getDate(), 
+            12, 0, 0
+        );
+
+        // Swap out the raw date for our timezone-proof date
+        const payload = {
+            ...data,
+            eventDate: safeDate
+        };
+        // ------------------------
+
+        // 1. Initial attempt (Use the payload now, not the raw data!)
+        const response = await submitEventRequest(payload);
 
         // 2. Handle Gatekeeper Rejections
         if (response.status === "ERROR") {

@@ -112,7 +112,7 @@ export function AppSidebar() {
 
 
                             <Dialog>
-                                <DialogTrigger className={"w-full h-full "}>
+                                <DialogTrigger asChild className={"w-full h-full "}>
                                     <SidebarMenuButton className={"hover:cursor-pointer"}>
                                         <div className="w-full flex items-center justify-between">
                                             <p>Add User</p>

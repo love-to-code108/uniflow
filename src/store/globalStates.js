@@ -1,22 +1,29 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware"; // 1. Import the persist middleware
+
 const now = new Date()
 
+// 2. Wrap your auth store with the persist function
+export const useAuthStore = create(
+    persist(
+        (set) => ({
+            user: null,
+            login: (userData) => set({ user: userData }),
+            logout: () => set({ user: null }),
+        }),
+        {
+            name: "uniflow-auth", // 3. This is the unique key used in localStorage
+        }
+    )
+);
 
-
-export const useAuthStore = create((set) => ({
-    user: null,
-    login: (userData) => set({ user: userData }),
-    logout: () => set({ user: null }),
-}));
-
-
+// Your calendar store stays exactly the same! 
+// (We don't need to persist the calendar date across refreshes)
 export const calanderStore = create((set) => ({
     month: now.getMonth(), // 0-indexed (0 = Jan, 11 = Dec)
     year: now.getFullYear(),
 
     nextMonth: () => set((state) => {
-        // If current is 11 (Dec), this becomes 12. 
-        // New Date(year, 12) automatically rolls over to Jan of next year.
         console.log("working")
         const nextDate = new Date(state.year, state.month + 1, 1);
         return {
@@ -26,20 +33,10 @@ export const calanderStore = create((set) => ({
     }),
 
     prevMonth: () => set((state) => {
-        // New Date(year, -1) automatically rolls back to Dec of previous year.
         const prevDate = new Date(state.year, state.month - 1, 1);
         return {
             month: prevDate.getMonth(),
             year: prevDate.getFullYear()
         };
     }),
-
-    // This is a "Selector" or "Computed" property
-    getMonthName: () => {
-        const { month, year } = get();
-        return new Date(year, month).toLocaleString('default', { month: 'long' });
-    }
 }))
-
-
-

@@ -1,6 +1,6 @@
 "use server"
 
-import { db } from "@/lib/db"; 
+import { db } from "@/lib/db";
 import { withPermissions } from "@/actions/gatekeeper"; // Make sure this path matches where you saved gatekeeper.js
 
 // 1. The Core Logic
@@ -16,18 +16,40 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             registrationLink
         } = formData;
 
-        // --- FIX 1: THE TIME MACHINE BLOCKER ---
-        // Ensure the date isn't in the past (ignoring the specific hour/minute)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        if (eventDate < today) {
-            return { 
-                status: "ERROR", 
-                message: "Cannot schedule an event in the past." 
+        // --- FIX 1: THE TIME MACHINE BLOCKER (Upgraded for Same-Day) ---
+        const now = new Date();
+
+        // Strip the time to compare just the pure dates
+        const todayMidnight = new Date(now);
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        const targetDateMidnight = new Date(eventDate);
+        targetDateMidnight.setHours(0, 0, 0, 0);
+
+        // Check 1: Is the calendar day entirely in the past?
+        if (targetDateMidnight < todayMidnight) {
+            return {
+                status: "ERROR",
+                message: "Cannot schedule an event in the past."
             };
         }
-        // ---------------------------------------
+
+        // Check 2: If the event is TODAY, is the start time already passed?
+        if (targetDateMidnight.getTime() === todayMidnight.getTime()) {
+            // Get current time in "HH:MM" 24-hour format (e.g., "23:29")
+            const currentHour = now.getHours().toString().padStart(2, '0');
+            const currentMinute = now.getMinutes().toString().padStart(2, '0');
+            const currentTime = `${currentHour}:${currentMinute}`;
+
+            // Compare the strings directly (e.g., "10:00" <= "23:29")
+            if (startTime <= currentTime) {
+                return {
+                    status: "ERROR",
+                    message: "Cannot schedule an event for a time that has already passed today."
+                };
+            }
+        }
+        // --------------------------------------------------------------
 
         // Fetch the user to check for the priority override
         const user = await db.user.findUnique({
@@ -44,12 +66,12 @@ const processEventRequest = async (userId, formData, flags = {}) => {
 
         // Handle 300+ Capacity Edge Case
         if (expectedStudents > 300) {
-            targetVenue = "Auditorium 3"; 
+            targetVenue = "Auditorium 3";
 
             if (!hasPriority && !flags.forceCapacity) {
-                return { 
-                    status: "CAPACITY_WARNING", 
-                    message: "The college cannot comfortably accommodate over 300 students. Proceed anyway?" 
+                return {
+                    status: "CAPACITY_WARNING",
+                    message: "The college cannot comfortably accommodate over 300 students. Proceed anyway?"
                 };
             }
         }
@@ -64,13 +86,13 @@ const processEventRequest = async (userId, formData, flags = {}) => {
                 data: {
                     name: eventName,
                     description: eventDescription || "",
-                    date: eventDate, 
+                    date: eventDate,
                     startTime: startTime,
                     endTime: endTime,
-                    expectedNumberOfStudents: expectedStudents, 
+                    expectedNumberOfStudents: expectedStudents,
                     venue: venueToBook,
                     registrationLink: registrationLink || null,
-                    status: "pending", 
+                    status: "pending",
                     userId: userId
                 }
             });
@@ -89,10 +111,10 @@ const processEventRequest = async (userId, formData, flags = {}) => {
                     date: eventDate,
                     venue: venueToCheck,
                     // Now blocks if the slot is taken by either an approved OR a pending event
-                    status: { in: ["pending", "approved"] }, 
+                    status: { in: ["pending", "approved"] },
                     AND: [
-                        { startTime: { lt: endTime } }, 
-                        { endTime: { gt: startTime } }  
+                        { startTime: { lt: endTime } },
+                        { endTime: { gt: startTime } }
                     ]
                 }
             });
@@ -102,7 +124,7 @@ const processEventRequest = async (userId, formData, flags = {}) => {
 
         // Check the Target Venue
         const isTargetFree = await checkAvailability(targetVenue);
-        
+
         if (isTargetFree) {
             await createPendingEvent(targetVenue);
             return { status: "SUCCESS", venue: targetVenue };
@@ -117,18 +139,18 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             for (const fallbackVenue of fallbacks) {
                 const isFallbackFree = await checkAvailability(fallbackVenue);
                 if (isFallbackFree) {
-                    return { 
-                        status: "ALTERNATIVE_AVAILABLE", 
-                        suggestedVenue: fallbackVenue 
+                    return {
+                        status: "ALTERNATIVE_AVAILABLE",
+                        suggestedVenue: fallbackVenue
                     };
                 }
             }
         }
 
         // Ultimate Failure State
-        return { 
-            status: "NO_VENUES", 
-            message: "All auditoriums are booked for this time slot." 
+        return {
+            status: "NO_VENUES",
+            message: "All auditoriums are booked for this time slot."
         };
 
     } catch (error) {
@@ -149,7 +171,7 @@ export async function submitEventRequest(formData, flags = {}) {
     try {
         // We await the wrapper to get the inner function
         const secureAction = await withPermissions("can_request_event", processEventRequest);
-        
+
         // Then we call that inner function with the data
         return await secureAction(formData, flags);
     } catch (error) {
