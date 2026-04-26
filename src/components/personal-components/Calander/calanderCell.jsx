@@ -61,6 +61,7 @@ import {
     ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { submitVehicleRequest } from "@/actions/vehicles";
+import { submitGuestRequest } from "@/actions/guests";
 
 
 // --- 1. DATA & SCHEMA CONFIGURATION ---
@@ -487,9 +488,9 @@ const CreateVehicleForm = ({ preFilledDate, onSuccess }) => {
                                     <SelectValue placeholder="Choose a vehicle" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="1a">Kia Carens</SelectItem>
-                                    <SelectItem value="1b">Toyota Innova</SelectItem>
-                                    <SelectItem value="1c">Maruti Ertiga</SelectItem>
+                                    <SelectItem value="Kia_Carens">Kia Carens</SelectItem>
+                                    <SelectItem value="Innova">Innova</SelectItem>
+                                    <SelectItem value="Ertiga">Ertiga</SelectItem>
                                 </SelectContent>
                             </Select>
                             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -654,6 +655,234 @@ const CreateVehicleForm = ({ preFilledDate, onSuccess }) => {
 
 
 
+// --- GUEST ZOD SCHEMA ---
+const guestFormSchema = z.object({
+    roomId: z.string().min(1, "Please select a room"),
+    checkInDate: z.date({
+        required_error: "Check-in date is required",
+    }),
+    checkOutDate: z.date({
+        required_error: "Check-out date is required",
+    }),
+    guestName: z.string().min(1, "Guest name is required"),
+    purpose: z.string().min(1, "Purpose of stay is required"),
+});
+
+// --- GUEST FORM COMPONENT ---
+const CreateGuestForm = ({ preFilledDate, onSuccess }) => {
+    const form = useForm({
+        resolver: zodResolver(guestFormSchema),
+        defaultValues: {
+            roomId: "",
+            checkInDate: preFilledDate,
+            checkOutDate: preFilledDate, // Defaults to same day
+            guestName: "",
+            purpose: "",
+        }
+    });
+
+    const onSubmit = async (data) => {
+        // --- THE DOUBLE TIMEZONE FIX ---
+        const safeCheckIn = new Date(
+            data.checkInDate.getFullYear(),
+            data.checkInDate.getMonth(),
+            data.checkInDate.getDate(),
+            12, 0, 0
+        );
+
+        const safeCheckOut = new Date(
+            data.checkOutDate.getFullYear(),
+            data.checkOutDate.getMonth(),
+            data.checkOutDate.getDate(),
+            12, 0, 0
+        );
+
+        const payload = {
+            ...data,
+            checkInDate: safeCheckIn,
+            checkOutDate: safeCheckOut
+        };
+
+        const response = await submitGuestRequest(payload);
+
+        if (response.status === "ERROR") {
+            toast.error(response.message);
+            return;
+        }
+
+        if (response.status === "SUCCESS") {
+            toast.success("Guest room request submitted successfully!");
+            if (onSuccess) onSuccess(false);
+        }
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return (
+        <form id="createGuestForm" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
+            <FieldGroup>
+
+                {/* Room Selection */}
+                <Controller
+                    name="roomId"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor="roomId">Select Room</FieldLabel>
+
+                            {/* FIX: Change defaultValue to value */}
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger id="roomId" aria-invalid={fieldState.invalid}>
+                                    <SelectValue placeholder="Choose a guest room" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="202A">Room 202A</SelectItem>
+                                    <SelectItem value="202B">Room 202B</SelectItem>
+                                    <SelectItem value="203A">Room 203A</SelectItem>
+                                    <SelectItem value="203B">Room 203B</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                        </Field>
+                    )}
+                />
+
+
+
+                {/* Date Pickers (Check-In & Check-Out) */}
+                <div className="grid grid-cols-2 gap-4">
+                    <Controller
+                        name="checkInDate"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="checkInDate">Check-In</FieldLabel>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="checkInDate"
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                            aria-invalid={fieldState.invalid}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={field.onChange}
+                                            disabled={(date) => date < today}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+
+                    <Controller
+                        name="checkOutDate"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="checkOutDate">Check-Out</FieldLabel>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="checkOutDate"
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                            aria-invalid={fieldState.invalid}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={field.onChange}
+                                            disabled={(date) => date < form.watch("checkInDate")} // Prevents checkout before checkin
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+                </div>
+
+                {/* Guest Details */}
+                <div className="grid grid-cols-2 gap-4">
+                    <Controller
+                        name="guestName"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="guestName">Guest Name</FieldLabel>
+                                <Input
+                                    {...field}
+                                    id="guestName"
+                                    placeholder="e.g., Dr. Smith"
+                                    aria-invalid={fieldState.invalid}
+                                />
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+
+                    <Controller
+                        name="purpose"
+                        control={form.control}
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor="purpose">Purpose of Stay</FieldLabel>
+                                <Input
+                                    {...field}
+                                    id="purpose"
+                                    placeholder="e.g., Guest Lecture"
+                                    aria-invalid={fieldState.invalid}
+                                />
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </Field>
+                        )}
+                    />
+                </div>
+
+            </FieldGroup>
+
+            <div className="w-full flex justify-end pt-4">
+                <Button type="submit" form="createGuestForm">Submit Request</Button>
+            </div>
+        </form>
+    );
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -743,7 +972,7 @@ const CalanderCell = ({ value }) => {
 
 
 
-            {/* Vehicle Modal (Placeholder for now) */}
+            {/* Vehicle Modal */}
             <Dialog open={activeModal === "vehicle"} onOpenChange={(open) => !open && setActiveModal(null)}>
                 <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
@@ -765,13 +994,22 @@ const CalanderCell = ({ value }) => {
 
 
 
-            {/* Lodging Modal (Placeholder for now) */}
+            {/* Lodging Modal */}
             <Dialog open={activeModal === "lodging"} onOpenChange={(open) => !open && setActiveModal(null)}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle>Request Guest Lodging</DialogTitle>
-                        <DialogDescription>Lodging form coming soon.</DialogDescription>
+                        <DialogDescription>
+                            Submit a room request. Subject to admin approval.
+                        </DialogDescription>
                     </DialogHeader>
+
+                    {/* Drop it right here! */}
+                    <CreateGuestForm
+                        preFilledDate={preFilledDate}
+                        onSuccess={() => setActiveModal(null)}
+                    />
+
                 </DialogContent>
             </Dialog>
         </>
