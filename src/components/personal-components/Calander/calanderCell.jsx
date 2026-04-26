@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/input-group"
 
 import { toast } from "sonner";
-import z from "zod";
+import z, { any } from "zod";
 
 
 
@@ -61,20 +61,21 @@ const formSchema = z.object({
     "eventDescription": z
         .string(),
 
-    "eventDate": z
-        .string(),
+    "eventDate": z.date({
+        required_error: "Please select a date",
+    }).transform((val) => val.toISOString().split('T')[0]),
 
     "startTime": z
-        .string(),
+        .any(),
 
-    "endTime": z
-        .string(),
+    // "endTime": z
+    //     .string(),
 
-    "registrationLink": z
-        .string(),
+    // "registrationLink": z
+    //     .string(),
 
-    "expectedNumberOfStudents": z
-        .string(),
+    // "expectedNumberOfStudents": z
+    //     .string(),
 
 })
 
@@ -90,8 +91,8 @@ const formSchema = z.object({
 
 const CalanderCell = ({ value }) => {
 
-    // console.log(value)
-    const preFilledDate = new Date(value.year, value.month, value.day);
+    // console.log(value.month)
+    const preFilledDate = new Date(value.year, value.month - 1, value.day);
     const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -99,9 +100,9 @@ const CalanderCell = ({ value }) => {
             "eventDescription": "",
             eventDate: preFilledDate,
             "startTime": "",
-            "endTime": "",
-            "registrationLink": "",
-            "expectedNumberOfStudents": "",
+            // "endTime": "",
+            // "registrationLink": "",
+            // "expectedNumberOfStudents": "",
         }
     })
 
@@ -109,7 +110,9 @@ const CalanderCell = ({ value }) => {
 
 
 
-    const [date, setDate] = React.useState(preFilledDate)
+    const [Date12, setDate12] = React.useState(preFilledDate)
+    // const [open, setOpen] = React.useState(false)
+    // const [date, setDate] = React.useState(undefined)
 
 
 
@@ -189,6 +192,8 @@ const CalanderCell = ({ value }) => {
                 {/* create new event form */}
                 <form id="createNewEventForm"
                     onSubmit={form.handleSubmit(onSubmit)}>
+
+
                     <FieldGroup className={"gap-3"}>
 
 
@@ -285,8 +290,11 @@ const CalanderCell = ({ value }) => {
                                         <Calendar
                                             id="eventDate"
                                             mode="single"
-                                            selected={date}
-                                            onSelect={field.onChange} // Updates the form state directly
+                                            selected={Date12}
+                                            onSelect={(date) => {
+                                                setDate(date)
+                                                setOpen(false)
+                                            }} // Updates the form state directly
                                             disabled={(date) =>
                                                 date < new Date() || date < new Date("1900-01-01")
                                             }
@@ -296,6 +304,9 @@ const CalanderCell = ({ value }) => {
                                 </Popover>
                             )}
                         />
+
+
+
 
 
 
@@ -314,14 +325,12 @@ const CalanderCell = ({ value }) => {
 
                                     <div className=" w-full flex justify-start">
                                         <Input
-
+                                            {...field}
                                             type="time"
                                             id="startTime"
                                             aria-invalid={fieldState.invalid}
-                                            step="1"
-                                            defaultValue="10:30:00"
                                             className="
-                                    w-[90px]
+                                    w-[65px]
                                     appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
                                         />
                                     </div>
@@ -336,8 +345,12 @@ const CalanderCell = ({ value }) => {
 
 
 
+
+
+
+
                         {/* end time */}
-                        <Controller
+                        {/* <Controller
                             name="endTime"
                             control={form.control}
                             render={({ field, fieldState }) => (
@@ -367,7 +380,10 @@ const CalanderCell = ({ value }) => {
                                     )}
                                 </Field>
                             )}
-                        />
+                        /> */}
+
+
+
 
 
 
@@ -375,7 +391,7 @@ const CalanderCell = ({ value }) => {
 
 
                         {/* registration link */}
-                        <Controller
+                        {/* <Controller
                             name="registrationLink"
                             control={form.control}
                             render={({ field, fieldState }) => (
@@ -400,14 +416,14 @@ const CalanderCell = ({ value }) => {
                                     )}
                                 </Field>
                             )}
-                        />
+                        /> */}
 
 
 
 
 
                         {/* expected number of students */}
-                        <Controller
+                        {/* <Controller
                             name="expectedNumberOfStudents"
                             control={form.control}
                             render={({ field, fieldState }) => (
@@ -431,14 +447,15 @@ const CalanderCell = ({ value }) => {
                                     )}
                                 </Field>
                             )}
-                        />
+                        /> */}
 
                     </FieldGroup>
 
 
 
-                    <Button type="submit"
-                        form="createNewEventForm">Create Event</Button>
+                    <div className=" w-full flex justify-end mt-[20px]">
+                        <Button type="submit" form="createNewEventForm">Create</Button>
+                    </div>
 
 
 
