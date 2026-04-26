@@ -21,6 +21,8 @@ model User {
   password        String                       
   permissions     Json?  
   events          Event[]
+  vehicleRequests   VehicleRequest[]
+  
 }
 
 
@@ -38,6 +40,36 @@ model Event{
   registrationLink    String?
   status String @default("pending")
 
+}
+
+
+
+// --- NEW VEHICLE MODELS ---
+
+// The actual physical cars (Admin will add "Vehicle 1", "Vehicle 2", etc.)
+model Vehicle {
+  id              String           @id @default(cuid())
+  name            String           @unique // e.g., "Vehicle 1"
+  requests        VehicleRequest[] 
+}
+
+// The booking request
+model VehicleRequest {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields:[userId], references:[id])
+  
+  // The specific car they are asking for (Admin can change this ID later)
+  vehicleId           String
+  vehicle             Vehicle  @relation(fields:[vehicleId], references:[id])
+  
+  date                DateTime 
+  startTime           String
+  endTime             String
+  destination         String   
+  purpose             String
+  
+  status              String   @default("pending") // "pending", "approved", "rejected"
 }
 
 
