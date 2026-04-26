@@ -49,6 +49,9 @@ const formSchema = z.object({
     "can_approve_vehicles": z
         .boolean(),
 
+    "has_priority": z
+        .boolean()
+
 })
 
 
@@ -72,6 +75,7 @@ const CreateNewUserForm = ({ className }) => {
             "can_approve_events": false,
             "can_approve_guests": false,
             "can_approve_vehicles": false,
+            "has_priority": false,
         }
     })
 
@@ -81,13 +85,13 @@ const CreateNewUserForm = ({ className }) => {
     const onSubmit = async (data) => {
 
         const r = await createNewUser(data);
-        
+
         console.log(r)
 
-        if(r.type === "error"){
-            form.setError("UserName",{
-                type:"manual",
-                message:r.message
+        if (r.type === "error") {
+            form.setError("UserName", {
+                type: "manual",
+                message: r.message
             })
 
             return;
@@ -343,6 +347,33 @@ const CreateNewUserForm = ({ className }) => {
 
                                     <FieldLabel className={"font-normal"} htmlFor="canApproveVehicles">
                                         Approve Vehicles.
+                                    </FieldLabel>
+                                </Field>
+                            )}
+                        />
+
+
+
+
+                        {/* has priority */}
+                        <Controller
+
+                            name="has_priority"
+                            control={form.control}
+                            render={({ field }) => (
+
+                                <Field orientation="horizontal"
+                                    className={"mt-4"}
+                                >
+                                    <Checkbox
+
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                        id="has_priority"
+                                        name="has_priority" />
+
+                                    <FieldLabel className={"font-bold"} htmlFor="has_priority">
+                                        Priority.
                                     </FieldLabel>
                                 </Field>
                             )}
