@@ -892,7 +892,7 @@ const CreateGuestForm = ({ preFilledDate, onSuccess }) => {
 
 // --- 3. MAIN CALENDAR CELL COMPONENT ---
 
-const CalanderCell = ({ value, dayData = [] }) => {
+const CalanderCell = ({ value, dayData = [], activeFilter = "all" }) => {
     // 1. Upgraded State: Instead of true/false, we track WHICH modal is open
     const [activeModal, setActiveModal] = useState(null);
 
@@ -937,9 +937,12 @@ const CalanderCell = ({ value, dayData = [] }) => {
 
                         {/* The Event Blocks */}
                         <div className="relative z-10 flex flex-col gap-1 w-full mt-1 overflow-y-auto">
-                            {dayData.map((item) => (
-                                <EventCell key={item.id} item={item} isPast={isPast} />
-                            ))}
+                            {dayData
+                                .filter((item) => activeFilter === "all" || item.type === activeFilter)
+                                .map((item) => (
+                                    <EventCell key={item.id} item={item} isPast={isPast} />
+                                ))
+                            }
                         </div>
                     </div>
                 </ContextMenuTrigger>
