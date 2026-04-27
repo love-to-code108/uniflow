@@ -50,7 +50,10 @@ const formSchema = z.object({
         .boolean(),
 
     "has_priority": z
-        .boolean()
+        .boolean(),
+
+    "can_create_users": z.boolean(),
+    "can_manage_system": z.boolean()
 
 })
 
@@ -76,6 +79,8 @@ const CreateNewUserForm = ({ className }) => {
             "can_approve_guests": false,
             "can_approve_vehicles": false,
             "has_priority": false,
+            "can_create_users": false,     // NEW
+            "can_manage_system": false,    // NEW
         }
     })
 
@@ -347,6 +352,45 @@ const CreateNewUserForm = ({ className }) => {
 
                                     <FieldLabel className={"font-normal"} htmlFor="canApproveVehicles">
                                         Approve Vehicles.
+                                    </FieldLabel>
+                                </Field>
+                            )}
+                        />
+
+
+                        {/* Can Create Users */}
+                        <Controller
+                            name="can_create_users"
+                            control={form.control}
+                            render={({ field }) => (
+                                <Field orientation="horizontal" className="">
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                        id="can_create_users"
+                                        name="can_create_users"
+                                    />
+                                    <FieldLabel className="font-bold text-red-500" htmlFor="can_create_users">
+                                        Can Create Users (Admin)
+                                    </FieldLabel>
+                                </Field>
+                            )}
+                        />
+
+                        {/* Can Manage System */}
+                        <Controller
+                            name="can_manage_system"
+                            control={form.control}
+                            render={({ field }) => (
+                                <Field orientation="horizontal" className="">
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                        id="can_manage_system"
+                                        name="can_manage_system"
+                                    />
+                                    <FieldLabel className="font-bold text-red-500" htmlFor="can_manage_system">
+                                        Can Manage System (Admin)
                                     </FieldLabel>
                                 </Field>
                             )}
