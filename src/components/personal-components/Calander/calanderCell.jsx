@@ -892,7 +892,7 @@ const CreateGuestForm = ({ preFilledDate, onSuccess }) => {
 
 // --- 3. MAIN CALENDAR CELL COMPONENT ---
 
-const CalanderCell = ({ value }) => {
+const CalanderCell = ({ value, dayData = [], activeFilter = "all" }) => {
     // 1. Upgraded State: Instead of true/false, we track WHICH modal is open
     const [activeModal, setActiveModal] = useState(null);
 
@@ -902,28 +902,47 @@ const CalanderCell = ({ value }) => {
 
     const preFilledDate = new Date(value.year, value.month - 1, value.day);
 
+    // --- NEW: Time Math for Figma Styling ---
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cellDate = new Date(value.year, value.month - 1, value.day);
+
+    const isPast = cellDate < today;
+    // ----------------------------------------
+
     return (
         <>
-            {/* --- THE CONTEXT MENU WRAPPER --- */}
             <ContextMenu>
-                {/* asChild allows the ContextMenu to attach to our custom div */}
                 <ContextMenuTrigger asChild>
-                    <div
-                        // The Left-Click Shortcut
-                        onClick={() => setActiveModal("event")}
-                        className="flex w-full min-h-[180px] border-r-[1px] border-b-[1px] border-border cursor-pointer  hover:bg-muted/50"
-                    >
-                        <div className="w-full py-2 px-4">
-                            <div className="w-full flex justify-end">
+                    <div className="relative flex flex-col w-full min-h-[150px] border-r-[1px] border-b-[1px] border-border hover:bg-muted/50 p-2">
+
+                        {/* THE BULLETPROOF CLICK CATCHER */}
+                        <div
+                            className="absolute inset-0 z-0 cursor-pointer"
+                            onClick={() => setActiveModal("event")}
+                        />
+
+                        {/* --- The Day Number Highlight --- */}
+                        <div className="relative z-10 w-full flex justify-end mb-1 pointer-events-none">
+                            {value.isToday ? (
+                                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#FF542D] text-white font-bold shadow-sm">
+                                    {value.day}
+                                </div>
+                            ) : (
                                 <p className={value.isCurrentMonth ? "text-foreground font-medium" : "text-muted-foreground"}>
                                     {value.day}
                                 </p>
-                            </div>
-                            <br />
+                            )}
+                        </div>
 
-                            {/* Future Event Cells will go here. 
-                                We will use e.stopPropagation() on them later! */}
-                            <EventCell />
+                        {/* The Event Blocks */}
+                        <div className="relative z-10 flex flex-col gap-1 w-full mt-1 overflow-y-auto">
+                            {dayData
+                                .filter((item) => activeFilter === "all" || item.type === activeFilter)
+                                .map((item) => (
+                                    <EventCell key={item.id} item={item} isPast={isPast} />
+                                ))
+                            }
                         </div>
                     </div>
                 </ContextMenuTrigger>
