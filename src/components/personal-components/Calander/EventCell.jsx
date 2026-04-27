@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { useAuthStore,calanderStore } from "@/store/globalStates";
+import { useAuthStore, calanderStore } from "@/store/globalStates";
 
 // --- SHADCN UI IMPORTS ---
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,21 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
+
+// Add these imports at the top with your other Shadcn components
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+
 import {
     Popover,
     PopoverContent,
@@ -31,7 +46,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-import { getBadgeDetails,updateBadgeDetails,resolveBadgeStatus } from "@/actions/calendar"; // Added update action
+import { getBadgeDetails, updateBadgeDetails, resolveBadgeStatus } from "@/actions/calendar"; // Added update action
 import { toast } from "sonner"; // Added for success/error popups
 
 
@@ -69,8 +84,9 @@ const EventCell = ({ item, isPast }) => {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [deepDetails, setDeepDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isAlertOpen, setIsAlertOpen] = useState(false);
 
-   // --- Edit State & Auth Store ---
+    // --- Edit State & Auth Store ---
     const user = useAuthStore((state) => state.user);
     const incrementRefresh = calanderStore((state) => state.incrementRefresh); // NEW
     const [isEditing, setIsEditing] = useState(false);
@@ -150,40 +166,35 @@ const EventCell = ({ item, isPast }) => {
     // --- NEW: APPROVE / DECLINE LOGIC ---
     const handleApprove = async () => {
         setIsLoading(true);
-        const response = await resolveBadgeStatus(item.id, item.type, "approved");
+        // NEW: We are now passing item.status as the 4th argument
+        const response = await resolveBadgeStatus(item.id, item.type, "approved", item.status);
         
         if (response.status === "SUCCESS") {
             toast.success(`${item.type} request approved!`);
-            
-            // Instantly update the detailed view
             setDeepDetails(response.data);
-            
-            // Temporary UI fix: Update the local lightweight item so the dialog status tag changes
             item.status = "approved"; 
-
-            incrementRefresh();
+            incrementRefresh(); 
         } else {
             toast.error(response.message);
+            incrementRefresh(); // Refresh anyway just in case the UI is out of sync!
         }
         setIsLoading(false);
     };
 
     const handleDecline = async () => {
         setIsLoading(true);
-        const response = await resolveBadgeStatus(item.id, item.type, "declined");
+        // NEW: Passing item.status here too
+        const response = await resolveBadgeStatus(item.id, item.type, "declined", item.status);
         
         if (response.status === "SUCCESS") {
-            toast.success(`${item.type} request declined.`);
-            
-            setDeepDetails(response.data);
-            item.status = "declined"; 
-            
-            incrementRefresh();
-            
-            // Close the dialog automatically since the request is dead
+            toast.success(`${item.type} request declined and deleted.`);
+            incrementRefresh(); 
+            setIsAlertOpen(false); 
             setIsDialogOpen(false); 
         } else {
             toast.error(response.message);
+            incrementRefresh(); // Pull down the fresh data if it failed due to a race condition
+            setIsAlertOpen(false);
         }
         setIsLoading(false);
     };
@@ -445,16 +456,48 @@ const EventCell = ({ item, isPast }) => {
                                 {/* --- BUTTON RENDER AREA --- */}
                                 <div className="flex justify-between items-center mt-6 pt-4 border-t">
 
+                                   
                                     {/* Left Side: Approver Controls */}
                                     <div>
-                                        {!isEditing && canApprove && item.status === "pending" && (
+                                        {!isEditing && canApprove && (item.status === "pending" || item.status === "approved") && (
                                             <div className="flex gap-2">
-                                                <Button size="sm" variant="destructive" onClick={handleDecline}>
-                                                    Decline
-                                                </Button>
-                                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleApprove}>
-                                                    Approve
-                                                </Button>
+
+                                                {/* Decline Button with Alert Dialog */}
+                                                <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button size="sm" variant="destructive">
+                                                            Decline
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This action cannot be undone. This will permanently decline and delete this {item.type} request from the database.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction
+                                                                onClick={(e) => {
+                                                                    e.preventDefault(); // Prevent immediate close to show loading state
+                                                                    handleDecline();
+                                                                }}
+                                                                disabled={isLoading}
+                                                                className="bg-red-600 hover:bg-red-700 text-white"
+                                                            >
+                                                                {isLoading ? "Deleting..." : "Yes, decline & delete"}
+                                                            </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+
+                                                {/* Approve Button (Only visible if still pending) */}
+                                                {item.status === "pending" && (
+                                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleApprove}>
+                                                        Approve
+                                                    </Button>
+                                                )}
                                             </div>
                                         )}
                                     </div>

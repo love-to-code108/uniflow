@@ -248,7 +248,7 @@ export async function updateBadgeDetails(id, type, updateData) {
 
 
 // 1. The Core Resolution Logic
-const processBadgeResolution = async (userId, id, type, newStatus) => {
+const processBadgeResolution = async (userId, id, type, newStatus, expectedStatus) => {
     try {
         // Fetch the user's current permissions
         const user = await db.user.findUnique({
@@ -260,53 +260,87 @@ const processBadgeResolution = async (userId, id, type, newStatus) => {
 
         let updatedRecord = null;
 
-        // Route to the correct table and check exact permissions
-        if (type === "event") {
-            if (user.permissions?.can_approve_events !== true) {
-                return { status: "ERROR", message: "Unauthorized to approve events." };
+        // --- THE RACE CONDITION CHECKER ---
+        // This ensures Admin B doesn't accidentally delete something Admin A just approved!
+        const checkRaceCondition = (existingStatus) => {
+            if (expectedStatus && existingStatus !== expectedStatus) {
+                return true;
             }
-            updatedRecord = await db.event.update({
-                where: { id },
-                data: { status: newStatus },
-                include: { user: { select: { name: true, username: true } } }
-            });
+            return false;
+        };
+
+        // Route to the correct table
+        if (type === "event") {
+            if (user.permissions?.can_approve_events !== true) return { status: "ERROR", message: "Unauthorized." };
+
+            const existing = await db.event.findUnique({ where: { id } });
+            if (!existing) return { status: "ERROR", message: "Record not found." };
+            if (checkRaceCondition(existing.status)) return { status: "ERROR", message: `Record already modified by another admin (Currently: ${existing.status}).` };
+
+            if (newStatus === "declined") {
+                // DELETE PROTOCOL
+                await db.event.delete({ where: { id } });
+                return { status: "SUCCESS", data: null };
+            } else {
+                updatedRecord = await db.event.update({
+                    where: { id },
+                    data: { status: newStatus },
+                    include: { user: { select: { name: true, username: true } } }
+                });
+            }
         } 
         else if (type === "vehicle") {
-            if (user.permissions?.can_approve_vehicles !== true) {
-                return { status: "ERROR", message: "Unauthorized to approve vehicles." };
+            if (user.permissions?.can_approve_vehicles !== true) return { status: "ERROR", message: "Unauthorized." };
+
+            const existing = await db.vehicleRequest.findUnique({ where: { id } });
+            if (!existing) return { status: "ERROR", message: "Record not found." };
+            if (checkRaceCondition(existing.status)) return { status: "ERROR", message: `Record already modified by another admin (Currently: ${existing.status}).` };
+
+            if (newStatus === "declined") {
+                await db.vehicleRequest.delete({ where: { id } });
+                return { status: "SUCCESS", data: null };
+            } else {
+                updatedRecord = await db.vehicleRequest.update({
+                    where: { id },
+                    data: { status: newStatus },
+                    include: { user: { select: { name: true, username: true } }, vehicle: true }
+                });
             }
-            updatedRecord = await db.vehicleRequest.update({
-                where: { id },
-                data: { status: newStatus },
-                include: { user: { select: { name: true, username: true } }, vehicle: true }
-            });
         } 
         else if (type === "guest") {
-            if (user.permissions?.can_approve_guests !== true) {
-                return { status: "ERROR", message: "Unauthorized to approve guest rooms." };
+            if (user.permissions?.can_approve_guests !== true) return { status: "ERROR", message: "Unauthorized." };
+
+            const existing = await db.guestRoomRequest.findUnique({ where: { id } });
+            if (!existing) return { status: "ERROR", message: "Record not found." };
+            if (checkRaceCondition(existing.status)) return { status: "ERROR", message: `Record already modified by another admin (Currently: ${existing.status}).` };
+
+            if (newStatus === "declined") {
+                await db.guestRoomRequest.delete({ where: { id } });
+                return { status: "SUCCESS", data: null };
+            } else {
+                updatedRecord = await db.guestRoomRequest.update({
+                    where: { id },
+                    data: { status: newStatus },
+                    include: { user: { select: { name: true, username: true } }, room: true }
+                });
             }
-            updatedRecord = await db.guestRoomRequest.update({
-                where: { id },
-                data: { status: newStatus },
-                include: { user: { select: { name: true, username: true } }, room: true }
-            });
         }
 
         return { status: "SUCCESS", data: updatedRecord };
 
     } catch (error) {
         console.error("Error resolving badge status:", error);
-        return { status: "ERROR", message: "Failed to update the database." };
+        return { status: "ERROR", message: "Failed to process the resolution in the database." };
     }
 };
 
-// 2. The Wrapped Export
-export async function resolveBadgeStatus(id, type, newStatus) {
+// 2. The Wrapped Export (Uses your gatekeeper!)
+export async function resolveBadgeStatus(id, type, newStatus, expectedStatus) {
     try {
         const secureAction = await withAuthOnly(processBadgeResolution);
-        return await secureAction(id, type, newStatus);
+        return await secureAction(id, type, newStatus, expectedStatus);
     } catch (error) {
         console.error("Action Wrapper Error:", error);
-        return { status: "ERROR", message: "Failed to process resolution." };
+        return { status: "ERROR", message: "Failed to authenticate resolution request." };
     }
 }
