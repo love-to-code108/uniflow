@@ -73,6 +73,10 @@ export default function Calendar() {
   const year = calanderStore((state) => state.year)
   const month = calanderStore((state) => state.month);
 
+  // --- NEW: Pull in the refresh trigger ---
+  const refreshTrigger = calanderStore((state) => state.refreshTrigger);
+
+
   console.log(month, year);
 
   const nextMonth = calanderStore((state) => state.nextMonth)
@@ -91,13 +95,11 @@ export default function Calendar() {
   }, [year, month])
 
 
-  // UPDATED: Fetch data whenever the month/year changes
+  // UPDATED: Fetch data whenever the month, year, calander, OR refreshTrigger changes
   useEffect(() => {
     setPrintCalander(calander);
 
     const fetchData = async () => {
-      // Note: We pass month + 1 because Javascript months are 0-11, 
-      // but standard humans (and our backend) think 1-12.
       const res = await getCalendarData(year, month + 1);
       if (res.status === "SUCCESS") {
         setMonthData(res.data);
@@ -105,12 +107,12 @@ export default function Calendar() {
     };
 
     fetchData();
-  }, [month, year, calander]);
+  }, [month, year, calander, refreshTrigger]); // <-- Added refreshTrigger here
 
 
 
 
-  
+
 
 
 

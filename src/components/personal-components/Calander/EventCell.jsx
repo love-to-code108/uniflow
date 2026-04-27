@@ -4,8 +4,7 @@ import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
-import { getBadgeDetails } from "@/actions/calendar";
-import { useAuthStore } from "@/store/globalStates";
+import { useAuthStore,calanderStore } from "@/store/globalStates";
 
 // --- SHADCN UI IMPORTS ---
 import { Input } from "@/components/ui/input";
@@ -32,8 +31,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-import { updateBadgeDetails } from "@/actions/calendar"; // Added update action
+import { getBadgeDetails,updateBadgeDetails,resolveBadgeStatus } from "@/actions/calendar"; // Added update action
 import { toast } from "sonner"; // Added for success/error popups
+
+
+
+
 
 
 
@@ -67,8 +70,9 @@ const EventCell = ({ item, isPast }) => {
     const [deepDetails, setDeepDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
-    // --- Edit State & Auth Store ---
+   // --- Edit State & Auth Store ---
     const user = useAuthStore((state) => state.user);
+    const incrementRefresh = calanderStore((state) => state.incrementRefresh); // NEW
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({});
 
@@ -132,6 +136,8 @@ const EventCell = ({ item, isPast }) => {
 
             // Note: The outer calendar grid badge won't update its title/time 
             // until we build the "Global Refresh" trigger next!
+
+            incrementRefresh();
         } else {
             toast.error(response.message);
         }
@@ -141,21 +147,51 @@ const EventCell = ({ item, isPast }) => {
 
 
 
-    // --- NEW: APPROVE / DECLINE PLACEHOLDERS ---
+    // --- NEW: APPROVE / DECLINE LOGIC ---
     const handleApprove = async () => {
-        console.log(`Approving ${item.type} request: ${item.id}`);
-        // Backend logic goes here next!
+        setIsLoading(true);
+        const response = await resolveBadgeStatus(item.id, item.type, "approved");
+        
+        if (response.status === "SUCCESS") {
+            toast.success(`${item.type} request approved!`);
+            
+            // Instantly update the detailed view
+            setDeepDetails(response.data);
+            
+            // Temporary UI fix: Update the local lightweight item so the dialog status tag changes
+            item.status = "approved"; 
+
+            incrementRefresh();
+        } else {
+            toast.error(response.message);
+        }
+        setIsLoading(false);
     };
 
     const handleDecline = async () => {
-        console.log(`Declining ${item.type} request: ${item.id}`);
-        // Backend logic goes here next!
+        setIsLoading(true);
+        const response = await resolveBadgeStatus(item.id, item.type, "declined");
+        
+        if (response.status === "SUCCESS") {
+            toast.success(`${item.type} request declined.`);
+            
+            setDeepDetails(response.data);
+            item.status = "declined"; 
+            
+            incrementRefresh();
+            
+            // Close the dialog automatically since the request is dead
+            setIsDialogOpen(false); 
+        } else {
+            toast.error(response.message);
+        }
+        setIsLoading(false);
     };
     // ------------------------------------------
 
 
 
-    
+
 
     const getColors = () => {
         if (item.status === "pending") return "bg-[#B8B8B8] text-black";
@@ -407,19 +443,39 @@ const EventCell = ({ item, isPast }) => {
                                 )}
 
                                 {/* --- BUTTON RENDER AREA --- */}
-                                <div className="flex justify-end gap-3 mt-4">
-                                    {isEditing ? (
-                                        <>
-                                            <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                            <Button size="sm" onClick={handleSave}>Save Changes</Button>
-                                        </>
-                                    ) : (
-                                        canEdit && (
-                                            <Button size="sm" onClick={handleEditStart}>
-                                                Edit Details
-                                            </Button>
-                                        )
-                                    )}
+                                <div className="flex justify-between items-center mt-6 pt-4 border-t">
+
+                                    {/* Left Side: Approver Controls */}
+                                    <div>
+                                        {!isEditing && canApprove && item.status === "pending" && (
+                                            <div className="flex gap-2">
+                                                <Button size="sm" variant="destructive" onClick={handleDecline}>
+                                                    Decline
+                                                </Button>
+                                                <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleApprove}>
+                                                    Approve
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right Side: Edit Controls */}
+                                    <div className="flex gap-3">
+                                        {isEditing ? (
+                                            <>
+                                                <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                                                <Button size="sm" onClick={handleSave} disabled={isLoading}>
+                                                    {isLoading ? "Saving..." : "Save Changes"}
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            canEdit && (
+                                                <Button size="sm" variant="secondary" onClick={handleEditStart}>
+                                                    Edit Details
+                                                </Button>
+                                            )
+                                        )}
+                                    </div>
                                 </div>
                             </>
                         ) : (

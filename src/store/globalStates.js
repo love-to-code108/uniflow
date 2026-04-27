@@ -1,9 +1,8 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware"; // 1. Import the persist middleware
+import { persist } from "zustand/middleware"; 
 
 const now = new Date()
 
-// 2. Wrap your auth store with the persist function
 export const useAuthStore = create(
     persist(
         (set) => ({
@@ -12,16 +11,19 @@ export const useAuthStore = create(
             logout: () => set({ user: null }),
         }),
         {
-            name: "uniflow-auth", // 3. This is the unique key used in localStorage
+            name: "uniflow-auth", 
         }
     )
 );
 
-// Your calendar store stays exactly the same! 
-// (We don't need to persist the calendar date across refreshes)
 export const calanderStore = create((set) => ({
-    month: now.getMonth(), // 0-indexed (0 = Jan, 11 = Dec)
+    month: now.getMonth(), 
     year: now.getFullYear(),
+
+    // --- NEW: The Global Refresh Trigger ---
+    refreshTrigger: 0,
+    incrementRefresh: () => set((state) => ({ refreshTrigger: state.refreshTrigger + 1 })),
+    // ---------------------------------------
 
     nextMonth: () => set((state) => {
         console.log("working")

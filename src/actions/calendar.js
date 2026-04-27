@@ -244,3 +244,69 @@ export async function updateBadgeDetails(id, type, updateData) {
         return { status: "ERROR", message: "Failed to process update." };
     }
 }
+
+
+
+// 1. The Core Resolution Logic
+const processBadgeResolution = async (userId, id, type, newStatus) => {
+    try {
+        // Fetch the user's current permissions
+        const user = await db.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
+        if (!user) return { status: "ERROR", message: "User not found." };
+
+        let updatedRecord = null;
+
+        // Route to the correct table and check exact permissions
+        if (type === "event") {
+            if (user.permissions?.can_approve_events !== true) {
+                return { status: "ERROR", message: "Unauthorized to approve events." };
+            }
+            updatedRecord = await db.event.update({
+                where: { id },
+                data: { status: newStatus },
+                include: { user: { select: { name: true, username: true } } }
+            });
+        } 
+        else if (type === "vehicle") {
+            if (user.permissions?.can_approve_vehicles !== true) {
+                return { status: "ERROR", message: "Unauthorized to approve vehicles." };
+            }
+            updatedRecord = await db.vehicleRequest.update({
+                where: { id },
+                data: { status: newStatus },
+                include: { user: { select: { name: true, username: true } }, vehicle: true }
+            });
+        } 
+        else if (type === "guest") {
+            if (user.permissions?.can_approve_guests !== true) {
+                return { status: "ERROR", message: "Unauthorized to approve guest rooms." };
+            }
+            updatedRecord = await db.guestRoomRequest.update({
+                where: { id },
+                data: { status: newStatus },
+                include: { user: { select: { name: true, username: true } }, room: true }
+            });
+        }
+
+        return { status: "SUCCESS", data: updatedRecord };
+
+    } catch (error) {
+        console.error("Error resolving badge status:", error);
+        return { status: "ERROR", message: "Failed to update the database." };
+    }
+};
+
+// 2. The Wrapped Export
+export async function resolveBadgeStatus(id, type, newStatus) {
+    try {
+        const secureAction = await withAuthOnly(processBadgeResolution);
+        return await secureAction(id, type, newStatus);
+    } catch (error) {
+        console.error("Action Wrapper Error:", error);
+        return { status: "ERROR", message: "Failed to process resolution." };
+    }
+}
