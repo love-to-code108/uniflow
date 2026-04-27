@@ -4,85 +4,101 @@ import { withAuthOnly } from "@/actions/gatekeeper";
 
 export async function getCalendarData(year, month) {
     try {
-        // Create boundaries for the current month
-        // Note: JavaScript months are 0-indexed in the Date constructor (0 = Jan, 11 = Dec)
-        // We assume the frontend passes month as 1-12
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+        // --- THE GRID MATH UPGRADE ---
+        // We replicate the frontend's exact 35/42 day grid logic to include padded days.
+        const firstDayOfMonth = new Date(year, month - 1, 1);
+        const startOffset = firstDayOfMonth.getDay(); // 0 (Sun) to 6 (Sat)
+
+        // The absolute first day visible on the calendar grid (e.g., April 26th for May's grid)
+        const gridStartDate = new Date(firstDayOfMonth);
+        gridStartDate.setDate(firstDayOfMonth.getDate() - startOffset);
+        gridStartDate.setHours(0, 0, 0, 0);
+
+        // Determine if the frontend will render 35 or 42 cells
+        const lastDayOfMonth = new Date(year, month, 0).getDate();
+        const totalSlotsNeeded = startOffset + lastDayOfMonth;
+        const numCells = totalSlotsNeeded <= 35 ? 35 : 42;
+
+        // The absolute last day visible on the calendar grid
+        const gridEndDate = new Date(gridStartDate);
+        gridEndDate.setDate(gridStartDate.getDate() + numCells - 1);
+        gridEndDate.setHours(23, 59, 59, 999);
+        // -----------------------------
 
         // Run all three queries in parallel for maximum speed
         const [events, vehicles, guests] = await Promise.all([
             db.event.findMany({
-                where: { date: { gte: startDate, lte: endDate } },
-                // ADD endTime: true RIGHT HERE
+                where: { date: { gte: gridStartDate, lte: gridEndDate } },
                 select: { id: true, name: true, date: true, startTime: true, endTime: true, status: true }
             }),
             db.vehicleRequest.findMany({
-                where: { date: { gte: startDate, lte: endDate } },
-                include: { vehicle: true } // Pulls in the semantic vehicle name
+                where: { date: { gte: gridStartDate, lte: gridEndDate } },
+                include: { vehicle: true } 
             }),
             db.guestRoomRequest.findMany({
                 // Guests might check in last month and check out this month, so we check for overlap
                 where: {
-                    checkInDate: { lte: endDate },
-                    checkOutDate: { gte: startDate }
+                    checkInDate: { lte: gridEndDate },
+                    checkOutDate: { gte: gridStartDate }
                 },
-                include: { room: true } // Pulls in the semantic room name
+                include: { room: true } 
             })
         ]);
 
         const groupedData = {};
 
-        // Helper function to push data into our grouped dictionary
-        const addToDate = (dateObj, item) => {
-            // Format to YYYY-MM-DD to use as the dictionary key
-            const dateKey = dateObj.toISOString().split('T')[0];
-            if (!groupedData[dateKey]) groupedData[dateKey] = [];
-            groupedData[dateKey].push(item);
+        // Helper to format date keys safely for local time zone
+        const createDateKey = (dateObject) => {
+            const d = new Date(dateObject);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         };
 
-        // 1. Process Events
-        events.forEach(ev => {
-            addToDate(ev.date, {
-                id: ev.id,
+        // 1. Map Events
+        events.forEach(evt => {
+            const dateKey = createDateKey(evt.date);
+            if (!groupedData[dateKey]) groupedData[dateKey] = [];
+            groupedData[dateKey].push({
+                id: evt.id,
                 type: "event",
-                title: ev.name,
-                startTime: ev.startTime, // Changed from 'time'
-                endTime: ev.endTime,     // NEW
-                status: ev.status
+                title: evt.name,
+                startTime: evt.startTime,
+                endTime: evt.endTime,
+                status: evt.status
             });
         });
 
-        // 2. Process Vehicles
+        // 2. Map Vehicles
         vehicles.forEach(veh => {
-            addToDate(veh.date, {
+            const dateKey = createDateKey(veh.date);
+            if (!groupedData[dateKey]) groupedData[dateKey] = [];
+            groupedData[dateKey].push({
                 id: veh.id,
                 type: "vehicle",
                 title: veh.vehicle?.name || "Vehicle Request",
-                startTime: veh.startTime, // Changed from 'time'
-                endTime: veh.endTime,     // NEW
+                startTime: veh.startTime,
+                endTime: veh.endTime,
                 status: veh.status
             });
         });
 
-        // 3. Process Guest Rooms (Multi-day span)
+        // 3. Map Guests (Creates a badge for EVERY day of their stay)
         guests.forEach(guest => {
-            // We loop through the days they are staying to put a block on each calendar day
-            let currentDate = new Date(guest.checkInDate);
-            const checkOut = new Date(guest.checkOutDate);
-
-            while (currentDate <= checkOut) {
-                // Only add to the dictionary if the date falls within the month we are looking at
-                if (currentDate >= startDate && currentDate <= endDate) {
-                    addToDate(currentDate, {
+            const start = new Date(guest.checkInDate);
+            const end = new Date(guest.checkOutDate);
+            
+            // Loop through every day from Check-In to Check-Out
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                // Ensure we only create badges for days that are actually visible on THIS grid
+                if (d >= gridStartDate && d <= gridEndDate) {
+                    const dateKey = createDateKey(d);
+                    if (!groupedData[dateKey]) groupedData[dateKey] = [];
+                    groupedData[dateKey].push({
                         id: guest.id,
                         type: "guest",
-                        title: `${guest.room?.name} (${guest.guestName})`,
+                        title: `Guest: ${guest.room?.name || "Room"}`,
                         status: guest.status
                     });
                 }
-                // Move to the next day
-                currentDate.setDate(currentDate.getDate() + 1);
             }
         });
 
@@ -90,7 +106,7 @@ export async function getCalendarData(year, month) {
 
     } catch (error) {
         console.error("Error fetching calendar data:", error);
-        return { status: "ERROR", message: "Failed to load calendar data." };
+        return { status: "ERROR", message: "Failed to fetch calendar data." };
     }
 }
 

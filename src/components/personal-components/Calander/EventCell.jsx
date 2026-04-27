@@ -19,7 +19,6 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 
-// Add these imports at the top with your other Shadcn components
 import {
     AlertDialog,
     AlertDialogAction,
@@ -31,7 +30,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
 
 import {
     Popover,
@@ -46,16 +44,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-import { getBadgeDetails, updateBadgeDetails, resolveBadgeStatus } from "@/actions/calendar"; // Added update action
-import { toast } from "sonner"; // Added for success/error popups
-
-
-
-
-
-
-
-
+import { getBadgeDetails, updateBadgeDetails, resolveBadgeStatus } from "@/actions/calendar";
+import { toast } from "sonner";
 
 const truncateText = (text, maxLength) => {
     if (!text) return "";
@@ -88,7 +78,7 @@ const EventCell = ({ item, isPast }) => {
 
     // --- Edit State & Auth Store ---
     const user = useAuthStore((state) => state.user);
-    const incrementRefresh = calanderStore((state) => state.incrementRefresh); // NEW
+    const incrementRefresh = calanderStore((state) => state.incrementRefresh);
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({});
 
@@ -119,11 +109,9 @@ const EventCell = ({ item, isPast }) => {
 
     const canEdit = isCreator || canApprove;
 
-    // Initialize edit form when entering edit mode
     const handleEditStart = () => {
         setEditForm({
             title: item.title,
-            // Safely parse existing dates into Javascript Date objects for the Calendar
             eventDate: deepDetails?.date ? new Date(deepDetails.date) : new Date(),
             checkInDate: deepDetails?.checkInDate ? new Date(deepDetails.checkInDate) : new Date(),
             checkOutDate: deepDetails?.checkOutDate ? new Date(deepDetails.checkOutDate) : new Date(),
@@ -137,36 +125,22 @@ const EventCell = ({ item, isPast }) => {
     };
 
     const handleSave = async () => {
-        setIsLoading(true); // Spin the loader while we talk to the db
-
+        setIsLoading(true);
         const response = await updateBadgeDetails(item.id, item.type, editForm);
 
         if (response.status === "SUCCESS") {
             toast.success("Details updated successfully!");
-
-            // 1. Exit edit mode
             setIsEditing(false);
-
-            // 2. Instantly update the detailed view with the fresh DB data!
             setDeepDetails(response.data);
-
-            // Note: The outer calendar grid badge won't update its title/time 
-            // until we build the "Global Refresh" trigger next!
-
             incrementRefresh();
         } else {
             toast.error(response.message);
         }
-
         setIsLoading(false);
     };
 
-
-
-    // --- NEW: APPROVE / DECLINE LOGIC ---
     const handleApprove = async () => {
         setIsLoading(true);
-        // NEW: We are now passing item.status as the 4th argument
         const response = await resolveBadgeStatus(item.id, item.type, "approved", item.status);
         
         if (response.status === "SUCCESS") {
@@ -176,14 +150,13 @@ const EventCell = ({ item, isPast }) => {
             incrementRefresh(); 
         } else {
             toast.error(response.message);
-            incrementRefresh(); // Refresh anyway just in case the UI is out of sync!
+            incrementRefresh(); 
         }
         setIsLoading(false);
     };
 
     const handleDecline = async () => {
         setIsLoading(true);
-        // NEW: Passing item.status here too
         const response = await resolveBadgeStatus(item.id, item.type, "declined", item.status);
         
         if (response.status === "SUCCESS") {
@@ -193,16 +166,11 @@ const EventCell = ({ item, isPast }) => {
             setIsDialogOpen(false); 
         } else {
             toast.error(response.message);
-            incrementRefresh(); // Pull down the fresh data if it failed due to a race condition
+            incrementRefresh(); 
             setIsAlertOpen(false);
         }
         setIsLoading(false);
     };
-    // ------------------------------------------
-
-
-
-
 
     const getColors = () => {
         if (item.status === "pending") return "bg-[#B8B8B8] text-black";
@@ -228,14 +196,16 @@ const EventCell = ({ item, isPast }) => {
         );
     };
 
-    // Prevent past date selection
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Dynamic End Time array logic
     const availableEndTimes = editForm.startTime
         ? timeSlots.filter(slot => slot.value > editForm.startTime)
         : timeSlots;
+
+    // Helper logic to cleanly format end time
+    const displayEndTime = deepDetails?.endTime || item.endTime;
+    const timeDisplayString = `${deepDetails?.startTime || item.startTime || "TBD"} ${displayEndTime ? `- ${displayEndTime}` : ""}`;
 
     return (
         <>
@@ -287,7 +257,6 @@ const EventCell = ({ item, isPast }) => {
 
                                 {/* EDITABLE DATE SECTION */}
                                 {item.type === "guest" ? (
-                                    // Guest: Check-in & Check-out Date Pickers
                                     <div className="grid grid-cols-4 items-start gap-4 border-b pb-2">
                                         <span className="font-semibold text-right text-sm text-muted-foreground mt-2">Dates:</span>
                                         {isEditing ? (
@@ -322,7 +291,6 @@ const EventCell = ({ item, isPast }) => {
                                         )}
                                     </div>
                                 ) : (
-                                    // Event & Vehicle: Single Date Picker
                                     <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
                                         <span className="font-semibold text-right text-sm text-muted-foreground">Date:</span>
                                         {isEditing ? (
@@ -359,13 +327,12 @@ const EventCell = ({ item, isPast }) => {
                                     )}
                                 </div>
 
-                                {/* EDITABLE TIMES (Dropdowns) */}
+                                {/* EDITABLE TIMES */}
                                 {item.type !== "guest" && (
                                     <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
                                         <span className="font-semibold text-right text-sm text-muted-foreground">Time:</span>
                                         {isEditing ? (
                                             <div className="col-span-3 flex gap-2 items-center">
-                                                {/* Start Time Select */}
                                                 <Select value={editForm.startTime} onValueChange={(val) => setEditForm({ ...editForm, startTime: val })}>
                                                     <SelectTrigger className="h-8 text-sm w-full">
                                                         <SelectValue placeholder="Start" />
@@ -379,7 +346,6 @@ const EventCell = ({ item, isPast }) => {
 
                                                 <span className="text-muted-foreground">-</span>
 
-                                                {/* End Time Select */}
                                                 <Select value={editForm.endTime} onValueChange={(val) => setEditForm({ ...editForm, endTime: val })} disabled={!editForm.startTime}>
                                                     <SelectTrigger className="h-8 text-sm w-full">
                                                         <SelectValue placeholder="End" />
@@ -393,15 +359,15 @@ const EventCell = ({ item, isPast }) => {
                                             </div>
                                         ) : (
                                             <span className="col-span-3 font-medium text-sm">
-                                                {deepDetails.startTime || item.startTime} - {deepDetails.endTime || item.endTime || "TBD"}
+                                                {timeDisplayString}
                                             </span>
                                         )}
                                     </div>
                                 )}
 
-                                {/* EVENT DESCRIPTION */}
-                                {item.type === "event" && (
-                                    <div className="grid grid-cols-4 items-start gap-4 border-b pb-2">
+                                {/* EVENT DESCRIPTION (Hidden if empty and not editing) */}
+                                {item.type === "event" && (isEditing || deepDetails.description) && (
+                                    <div className="grid grid-cols-4 items-start gap-4">
                                         <span className="font-semibold text-right text-sm text-muted-foreground">Details:</span>
                                         {isEditing ? (
                                             <div className="col-span-3">
@@ -426,7 +392,7 @@ const EventCell = ({ item, isPast }) => {
                                                 <span className="col-span-3 font-medium text-sm">{deepDetails.destination}</span>
                                             )}
                                         </div>
-                                        <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
+                                        <div className="grid grid-cols-4 items-center gap-4">
                                             <span className="font-semibold text-right text-sm text-muted-foreground">Purpose:</span>
                                             {isEditing ? (
                                                 <div className="col-span-3">
@@ -441,7 +407,7 @@ const EventCell = ({ item, isPast }) => {
 
                                 {/* GUEST PURPOSE */}
                                 {item.type === "guest" && (
-                                    <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
+                                    <div className="grid grid-cols-4 items-center gap-4">
                                         <span className="font-semibold text-right text-sm text-muted-foreground">Purpose:</span>
                                         {isEditing ? (
                                             <div className="col-span-3">
@@ -455,14 +421,10 @@ const EventCell = ({ item, isPast }) => {
 
                                 {/* --- BUTTON RENDER AREA --- */}
                                 <div className="flex justify-between items-center mt-6 pt-4 border-t">
-
-                                   
                                     {/* Left Side: Approver Controls */}
                                     <div>
                                         {!isEditing && canApprove && (item.status === "pending" || item.status === "approved") && (
                                             <div className="flex gap-2">
-
-                                                {/* Decline Button with Alert Dialog */}
                                                 <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
                                                     <AlertDialogTrigger asChild>
                                                         <Button size="sm" variant="destructive">
@@ -480,7 +442,7 @@ const EventCell = ({ item, isPast }) => {
                                                             <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
                                                             <AlertDialogAction
                                                                 onClick={(e) => {
-                                                                    e.preventDefault(); // Prevent immediate close to show loading state
+                                                                    e.preventDefault(); 
                                                                     handleDecline();
                                                                 }}
                                                                 disabled={isLoading}
@@ -492,7 +454,6 @@ const EventCell = ({ item, isPast }) => {
                                                     </AlertDialogContent>
                                                 </AlertDialog>
 
-                                                {/* Approve Button (Only visible if still pending) */}
                                                 {item.status === "pending" && (
                                                     <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleApprove}>
                                                         Approve
