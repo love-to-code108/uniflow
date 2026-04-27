@@ -94,3 +94,47 @@ export async function getCalendarData(year, month) {
         return { status: "ERROR", message: "Failed to load calendar data." };
     }
 }
+
+
+
+
+// Add this to the bottom of src/actions/calendar.js
+
+export async function getBadgeDetails(id, type) {
+    try {
+        let data = null;
+
+        if (type === "event") {
+            data = await db.event.findUnique({
+                where: { id },
+                include: { user: { select: { name: true, username: true } } }
+            });
+        } 
+        else if (type === "vehicle") {
+            data = await db.vehicleRequest.findUnique({
+                where: { id },
+                include: { 
+                    user: { select: { name: true, username: true } },
+                    vehicle: true 
+                }
+            });
+        } 
+        else if (type === "guest") {
+            data = await db.guestRoomRequest.findUnique({
+                where: { id },
+                include: { 
+                    user: { select: { name: true, username: true } },
+                    room: true 
+                }
+            });
+        }
+
+        if (!data) return { status: "ERROR", message: "Record not found." };
+
+        return { status: "SUCCESS", data };
+
+    } catch (error) {
+        console.error("Error fetching badge details:", error);
+        return { status: "ERROR", message: "Failed to load details." };
+    }
+}

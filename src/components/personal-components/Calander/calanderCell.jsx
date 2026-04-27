@@ -912,37 +912,34 @@ const CalanderCell = ({ value, dayData = [] }) => {
 
     return (
         <>
-            {/* --- THE CONTEXT MENU WRAPPER --- */}
             <ContextMenu>
-                {/* asChild allows the ContextMenu to attach to our custom div */}
                 <ContextMenuTrigger asChild>
-                    <div
-                        // The Left-Click Shortcut
-                        onClick={() => setActiveModal("event")}
-                        className="flex w-full min-h-[200px] border-r-[1px] border-b-[1px] border-border cursor-pointer  hover:bg-muted/50"
-                    >
-                        <div className="w-full">
-                            {/* --- NEW: The Day Number Highlight --- */}
-                        <div className="w-full flex pt-2 px-4 justify-end">
+                    <div className="relative flex flex-col w-full min-h-[150px] border-r-[1px] border-b-[1px] border-border hover:bg-muted/50 p-2">
+
+                        {/* THE BULLETPROOF CLICK CATCHER */}
+                        <div
+                            className="absolute inset-0 z-0 cursor-pointer"
+                            onClick={() => setActiveModal("event")}
+                        />
+
+                        {/* --- The Day Number Highlight --- */}
+                        <div className="relative z-10 w-full flex justify-end mb-1 pointer-events-none">
                             {value.isToday ? (
-                                <div className="flex items-center justify-center w-[30px] h-[30px] rounded-full bg-[#FF542D] text-white font-bold">
+                                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[#FF542D] text-white font-bold shadow-sm">
                                     {value.day}
                                 </div>
                             ) : (
-                                <p className={`mb-[6px] ${value.isCurrentMonth ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                                <p className={value.isCurrentMonth ? "text-foreground font-medium" : "text-muted-foreground"}>
                                     {value.day}
                                 </p>
                             )}
                         </div>
-                            <br />
 
-                            {/* The Event Blocks */}
-                        <div className="flex flex-col gap-1 w-full mt-1 overflow-y-auto">
+                        {/* The Event Blocks */}
+                        <div className="relative z-10 flex flex-col gap-1 w-full mt-1 overflow-y-auto">
                             {dayData.map((item) => (
-                                // Pass the isPast flag down!
-                                <EventCell key={item.id} item={item} isPast={isPast} /> 
+                                <EventCell key={item.id} item={item} isPast={isPast} />
                             ))}
-                        </div>
                         </div>
                     </div>
                 </ContextMenuTrigger>
