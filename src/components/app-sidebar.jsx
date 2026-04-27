@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, Plus, WindArrowDown } from "lucide-react" // For the arrow icon
+import { ChevronDown, Plus, WindArrowDown, LogOut } from "lucide-react" // Added LogOut icon
 
 // Import Dropdown Menu components
 import {
@@ -24,7 +24,6 @@ import {
 
 import { Orbit } from 'lucide-react';
 
-
 import { Sidebar, SidebarContent, SidebarGroup } from "@/components/ui/sidebar"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 // import { Button } from "./ui/button";
@@ -40,35 +39,37 @@ import {
 } from "@/components/ui/dialog"
 import Form from "./personal-components/forms/CreateNewUserForm";
 
-
-
+// --- NEW IMPORTS FOR LOGOUT ---
+import { useAuthStore } from "@/store/globalStates";
+import { useRouter } from "next/navigation";
+import { logoutUser } from "@/lib/userAuth";
 
 
 export function AppSidebar() {
 
+    // --- LOGOUT LOGIC ---
+    const logout = useAuthStore((state) => state.logout);
+    const router = useRouter();
 
-
-    const addUser = () => {
-
-
-    }
-
-
-
-
+    const handleLogout = async () => {
+        // 1. Tell the backend to destroy the secure cookie
+        await logoutUser(); 
+        
+        // 2. Clear the frontend Zustand memory
+        logout(); 
+        
+        // 3. Now the middleware will actually let you go to the login page!
+        router.push("/login"); 
+    };
 
     return (
         <Sidebar collapsible="icon">
-
 
             {/* the header */}
             <SidebarHeader className={"mt-2"}>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <div className=" flex justify-start items-center">
-
-
-
 
                             {/* the company logo */}
                             <div className=" flex">
@@ -83,8 +84,6 @@ export function AppSidebar() {
                                 </div>
                             </div>
 
-
-
                             <div className=" w-full flex justify-end">
                             </div>
                         </div>
@@ -92,8 +91,6 @@ export function AppSidebar() {
                     </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarHeader>
-
-
 
             <SidebarContent>
                 <SidebarGroup>
@@ -103,13 +100,6 @@ export function AppSidebar() {
 
                     <SidebarMenu>
                         <SidebarMenuItem>
-                            {/* <SidebarMenuButton onClick={addUser}>
-                                <div className="w-full flex items-center justify-between hover:cursor-pointer">
-                                    <p>Add User</p>
-                                    <Plus/>
-                                </div>
-                            </SidebarMenuButton> */}
-
 
                             <Dialog>
                                 <DialogTrigger asChild className={"w-full h-full "}>
@@ -132,10 +122,22 @@ export function AppSidebar() {
                                 </DialogContent>
                             </Dialog>
 
-
-
-
                         </SidebarMenuItem>
+
+                        {/* --- NEW LOGOUT BUTTON --- */}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton 
+                                onClick={handleLogout} 
+                                className={"hover:cursor-pointer text-red-500 hover:text-red-600 transition-colors"}
+                            >
+                                <div className="w-full flex items-center justify-between">
+                                    <p>Logout</p>
+                                    <LogOut size={16} />
+                                </div>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        {/* ------------------------- */}
+
                     </SidebarMenu>
                 </SidebarGroup>
             </SidebarContent>

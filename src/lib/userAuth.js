@@ -51,3 +51,11 @@ export async function authenticateUser(formData) {
         return { success: false, message: "Something went wrong with the database" };
     }
 }
+
+
+
+
+export async function logoutUser() {
+    const cookieStore = await cookies();
+    cookieStore.delete("session");
+}

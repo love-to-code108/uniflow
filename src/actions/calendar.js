@@ -1,8 +1,6 @@
-
-
 "use server";
-
 import { db } from "@/lib/db";
+import { withAuthOnly } from "@/actions/gatekeeper";
 
 export async function getCalendarData(year, month) {
     try {
@@ -16,7 +14,8 @@ export async function getCalendarData(year, month) {
         const [events, vehicles, guests] = await Promise.all([
             db.event.findMany({
                 where: { date: { gte: startDate, lte: endDate } },
-                select: { id: true, name: true, date: true, startTime: true, status: true }
+                // ADD endTime: true RIGHT HERE
+                select: { id: true, name: true, date: true, startTime: true, endTime: true, status: true }
             }),
             db.vehicleRequest.findMany({
                 where: { date: { gte: startDate, lte: endDate } },
@@ -109,22 +108,22 @@ export async function getBadgeDetails(id, type) {
                 where: { id },
                 include: { user: { select: { name: true, username: true } } }
             });
-        } 
+        }
         else if (type === "vehicle") {
             data = await db.vehicleRequest.findUnique({
                 where: { id },
-                include: { 
+                include: {
                     user: { select: { name: true, username: true } },
-                    vehicle: true 
+                    vehicle: true
                 }
             });
-        } 
+        }
         else if (type === "guest") {
             data = await db.guestRoomRequest.findUnique({
                 where: { id },
-                include: { 
+                include: {
                     user: { select: { name: true, username: true } },
-                    room: true 
+                    room: true
                 }
             });
         }
@@ -136,5 +135,112 @@ export async function getBadgeDetails(id, type) {
     } catch (error) {
         console.error("Error fetching badge details:", error);
         return { status: "ERROR", message: "Failed to load details." };
+    }
+}
+
+
+
+
+
+
+// 1. The Core Logic
+const processBadgeUpdate = async (userId, id, type, updateData) => {
+    try {
+        // Fetch the user's current permissions
+        const user = await db.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
+        if (!user) return { status: "ERROR", message: "User not found." };
+
+        let updatedRecord = null;
+
+        if (type === "event") {
+            // SECURITY CHECK: Fetch the existing record to check ownership
+            const existing = await db.event.findUnique({ where: { id } });
+            if (!existing) return { status: "ERROR", message: "Event not found." };
+
+            const isCreator = existing.userId === userId;
+            const canApprove = user.permissions?.can_approve_events === true;
+
+            if (!isCreator && !canApprove) {
+                return { status: "ERROR", message: "Unauthorized to edit this event." };
+            }
+
+            // Execute the update
+            updatedRecord = await db.event.update({
+                where: { id },
+                data: {
+                    name: updateData.title,
+                    description: updateData.description,
+                    date: new Date(updateData.eventDate),
+                    startTime: updateData.startTime,
+                    endTime: updateData.endTime,
+                },
+                include: { user: { select: { name: true, username: true } } }
+            });
+        } 
+        else if (type === "vehicle") {
+            const existing = await db.vehicleRequest.findUnique({ where: { id } });
+            if (!existing) return { status: "ERROR", message: "Vehicle request not found." };
+
+            const isCreator = existing.userId === userId;
+            const canApprove = user.permissions?.can_approve_vehicles === true;
+
+            if (!isCreator && !canApprove) {
+                return { status: "ERROR", message: "Unauthorized to edit this request." };
+            }
+
+            updatedRecord = await db.vehicleRequest.update({
+                where: { id },
+                data: {
+                    destination: updateData.destination,
+                    purpose: updateData.purpose,
+                    date: new Date(updateData.eventDate),
+                    startTime: updateData.startTime,
+                    endTime: updateData.endTime,
+                },
+                include: { user: { select: { name: true, username: true } }, vehicle: true }
+            });
+        } 
+        else if (type === "guest") {
+            const existing = await db.guestRoomRequest.findUnique({ where: { id } });
+            if (!existing) return { status: "ERROR", message: "Guest request not found." };
+
+            const isCreator = existing.userId === userId;
+            const canApprove = user.permissions?.can_approve_guests === true;
+
+            if (!isCreator && !canApprove) {
+                return { status: "ERROR", message: "Unauthorized to edit this request." };
+            }
+
+            updatedRecord = await db.guestRoomRequest.update({
+                where: { id },
+                data: {
+                    purpose: updateData.purpose,
+                    checkInDate: new Date(updateData.checkInDate),
+                    checkOutDate: new Date(updateData.checkOutDate),
+                },
+                include: { user: { select: { name: true, username: true } }, room: true }
+            });
+        }
+
+        return { status: "SUCCESS", data: updatedRecord };
+
+    } catch (error) {
+        console.error("Error updating badge details:", error);
+        return { status: "ERROR", message: "Failed to update the database." };
+    }
+};
+
+// 2. The Wrapped Export
+export async function updateBadgeDetails(id, type, updateData) {
+    try {
+        const secureAction = await withAuthOnly(processBadgeUpdate);
+        return await secureAction(id, type, updateData);
+    } catch (error) {
+        console.error("Action Wrapper Error:", error);
+        return { status: "ERROR", message: "Failed to process update." };
     }
 }

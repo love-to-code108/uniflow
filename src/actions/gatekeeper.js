@@ -57,3 +57,41 @@ export async function withPermissions(requiredPermission, action) {
         }
     };
 }
+
+
+
+
+
+// Add this to the bottom of src/actions/gatekeeper.js
+
+export async function withAuthOnly(action) {
+    return async (...args) => {
+        try {
+            const cookieStore = await cookies();
+            const sessionToken = cookieStore.get("session")?.value;
+            
+            if (!sessionToken) {
+                return { status: "ERROR", message: "Unauthorized: Please log in again." };
+            }
+
+            let userId;
+            try {
+                const { payload } = await jwtVerify(sessionToken, encodedKey);
+                userId = payload.userId;
+            } catch (jwtError) {
+                return { status: "ERROR", message: "Session expired. Please log in again." };
+            }
+
+            if (!userId) {
+                return { status: "ERROR", message: "Invalid session data." };
+            }
+
+            // Pass the verified userId straight to the action
+            return await action(userId, ...args);
+
+        } catch (error) {
+            console.error("Auth Wrapper Error:", error);
+            return { status: "ERROR", message: "Authentication failed." };
+        }
+    };
+}
