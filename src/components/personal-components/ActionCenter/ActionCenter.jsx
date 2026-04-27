@@ -30,16 +30,18 @@ import { getActionCenterData } from "@/actions/actionCenter";
 import { resolveBadgeStatus } from "@/actions/calendar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 
 export default function ActionCenter() {
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // --- Search & Filter States ---
+    // --- Search & Filter States ---
     const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
-    const [typeFilter, setTypeFilter] = useState("all");
-    const [sortOrder, setSortOrder] = useState("dateAsc");
+    const [statusFilter, setStatusFilter] = useState("All Statuses"); // Updated
+    const [typeFilter, setTypeFilter] = useState("All Categories");   // Updated
+    const [sortOrder, setSortOrder] = useState("Event Date (Oldest First)"); // Updated
 
     // --- Inline Editing State ---
     const [editingItem, setEditingItem] = useState(null);
@@ -68,10 +70,11 @@ export default function ActionCenter() {
     };
 
     // --- The Client-Side Search Engine ---
+    // --- The Client-Side Search Engine ---
     const filteredAndSortedData = useMemo(() => {
         let result = [...data];
 
-        // 1. Search Filter (Faculty Coordinator Name or Title)
+        // 1. Search Filter
         if (searchTerm) {
             const lowerSearch = searchTerm.toLowerCase();
             result = result.filter(item =>
@@ -80,14 +83,18 @@ export default function ActionCenter() {
             );
         }
 
-        // 2. Status Filter
-        if (statusFilter !== "all") {
-            result = result.filter(item => item.status === statusFilter);
+        // 2. Status Filter (Translates UI text to DB status)
+        if (statusFilter !== "All Statuses") {
+            const mappedStatus = statusFilter === "Pending Only" ? "pending" : statusFilter.toLowerCase();
+            result = result.filter(item => item.status === mappedStatus);
         }
 
-        // 3. Category Filter
-        if (typeFilter !== "all") {
-            result = result.filter(item => item.type === typeFilter);
+        // 3. Category Filter (Translates UI text to DB type)
+        if (typeFilter !== "All Categories") {
+            const mappedType = typeFilter === "Events" ? "event" :
+                               typeFilter === "Vehicles" ? "vehicle" :
+                               typeFilter === "Guests" ? "guest" : "all";
+            result = result.filter(item => item.type === mappedType);
         }
 
         // 4. Sorting Logic
@@ -95,13 +102,15 @@ export default function ActionCenter() {
             const dateA = new Date(a.sortDate).getTime();
             const dateB = new Date(b.sortDate).getTime();
 
-            if (sortOrder === "dateAsc") return dateA - dateB;
-            if (sortOrder === "dateDesc") return dateB - dateA;
+            if (sortOrder === "Event Date (Oldest First)") return dateA - dateB;
+            if (sortOrder === "Event Date (Newest First)") return dateB - dateA;
             return 0;
         });
 
         return result;
     }, [data, searchTerm, statusFilter, typeFilter, sortOrder]);
+
+
 
     if (isLoading) {
         return (
@@ -118,48 +127,63 @@ export default function ActionCenter() {
                 <p className="text-muted-foreground mt-2">Manage, filter, and resolve all incoming resource requests.</p>
             </div>
 
+           
             {/* --- The Filters Bar (Shadcn UI) --- */}
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <Input
-                    placeholder="Search by Title or Faculty Coordinator..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-[300px] bg-background"
-                />
+            <div className="flex flex-col md:flex-row gap-4 mb-6 items-end">
+                
+                <div className="flex flex-col gap-2 w-full md:w-auto">
+                    <Label htmlFor="search">Search Requests</Label>
+                    <Input
+                        id="search"
+                        placeholder="Title or Faculty Coordinator..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="max-w-[300px] bg-background"
+                    />
+                </div>
 
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px] bg-background">
-                        <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="pending">Pending Only</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="declined">Declined</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="flex flex-col gap-2">
+                    <Label>Status</Label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[180px] bg-background">
+                            <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All Statuses">All Statuses</SelectItem>
+                            <SelectItem value="Pending Only">Pending Only</SelectItem>
+                            <SelectItem value="Approved">Approved</SelectItem>
+                            <SelectItem value="Declined">Declined</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
 
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-[180px] bg-background">
-                        <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="event">Events</SelectItem>
-                        <SelectItem value="vehicle">Vehicles</SelectItem>
-                        <SelectItem value="guest">Guests</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="flex flex-col gap-2">
+                    <Label>Category</Label>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-[180px] bg-background">
+                            <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="All Categories">All Categories</SelectItem>
+                            <SelectItem value="Events">Events</SelectItem>
+                            <SelectItem value="Vehicles">Vehicles</SelectItem>
+                            <SelectItem value="Guests">Guests</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
 
-                <Select value={sortOrder} onValueChange={setSortOrder}>
-                    <SelectTrigger className="w-[220px] bg-background">
-                        <SelectValue placeholder="Sort by Date" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="dateAsc">Event Date (Oldest First)</SelectItem>
-                        <SelectItem value="dateDesc">Event Date (Newest First)</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="flex flex-col gap-2">
+                    <Label>Sort By</Label>
+                    <Select value={sortOrder} onValueChange={setSortOrder}>
+                        <SelectTrigger className="w-[240px] bg-background">
+                            <SelectValue placeholder="Sort by Date" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Event Date (Oldest First)">Event Date (Oldest First)</SelectItem>
+                            <SelectItem value="Event Date (Newest First)">Event Date (Newest First)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
             {/* --- The Data Table (Shadcn UI) --- */}
