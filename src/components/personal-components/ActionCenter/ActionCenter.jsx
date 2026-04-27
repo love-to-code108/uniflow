@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
     Table,
     TableBody,
@@ -10,6 +10,21 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import { getActionCenterData } from "@/actions/actionCenter";
 import { resolveBadgeStatus } from "@/actions/calendar";
@@ -19,6 +34,15 @@ import { cn } from "@/lib/utils";
 export default function ActionCenter() {
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // --- Search & Filter States ---
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [typeFilter, setTypeFilter] = useState("all");
+    const [sortOrder, setSortOrder] = useState("dateAsc");
+
+    // --- Inline Editing State ---
+    const [editingItem, setEditingItem] = useState(null);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -43,6 +67,42 @@ export default function ActionCenter() {
         }
     };
 
+    // --- The Client-Side Search Engine ---
+    const filteredAndSortedData = useMemo(() => {
+        let result = [...data];
+
+        // 1. Search Filter (Faculty Coordinator Name or Title)
+        if (searchTerm) {
+            const lowerSearch = searchTerm.toLowerCase();
+            result = result.filter(item =>
+                item.title.toLowerCase().includes(lowerSearch) ||
+                (item.user?.name || item.user?.username || "").toLowerCase().includes(lowerSearch)
+            );
+        }
+
+        // 2. Status Filter
+        if (statusFilter !== "all") {
+            result = result.filter(item => item.status === statusFilter);
+        }
+
+        // 3. Category Filter
+        if (typeFilter !== "all") {
+            result = result.filter(item => item.type === typeFilter);
+        }
+
+        // 4. Sorting Logic
+        result.sort((a, b) => {
+            const dateA = new Date(a.sortDate).getTime();
+            const dateB = new Date(b.sortDate).getTime();
+
+            if (sortOrder === "dateAsc") return dateA - dateB;
+            if (sortOrder === "dateDesc") return dateB - dateA;
+            return 0;
+        });
+
+        return result;
+    }, [data, searchTerm, statusFilter, typeFilter, sortOrder]);
+
     if (isLoading) {
         return (
             <div className="w-full h-[80vh] flex justify-center items-center">
@@ -55,10 +115,55 @@ export default function ActionCenter() {
         <div className="w-full p-8">
             <div className="mb-8">
                 <h2 className="text-3xl font-bold tracking-tight">Action Center</h2>
-                <p className="text-muted-foreground mt-2">Manage and resolve all incoming resource requests.</p>
+                <p className="text-muted-foreground mt-2">Manage, filter, and resolve all incoming resource requests.</p>
             </div>
 
-            <div className="border rounded-md shadow-sm bg-background">
+            {/* --- The Filters Bar (Shadcn UI) --- */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <Input
+                    placeholder="Search by Title or Faculty Coordinator..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-[300px] bg-background"
+                />
+
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px] bg-background">
+                        <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending Only</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="declined">Declined</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-[180px] bg-background">
+                        <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="event">Events</SelectItem>
+                        <SelectItem value="vehicle">Vehicles</SelectItem>
+                        <SelectItem value="guest">Guests</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                    <SelectTrigger className="w-[220px] bg-background">
+                        <SelectValue placeholder="Sort by Date" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="dateAsc">Event Date (Oldest First)</SelectItem>
+                        <SelectItem value="dateDesc">Event Date (Newest First)</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {/* --- The Data Table (Shadcn UI) --- */}
+            <div className="border rounded-md shadow-sm bg-background overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -71,14 +176,14 @@ export default function ActionCenter() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {data.length === 0 ? (
+                        {filteredAndSortedData.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                    No requests found.
+                                    No requests match your current filters.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            data.map((item) => (
+                            filteredAndSortedData.map((item) => (
                                 <TableRow key={`${item.type}-${item.id}`}>
                                     <TableCell className="font-medium capitalize">{item.type}</TableCell>
                                     <TableCell>{item.title}</TableCell>
@@ -90,7 +195,7 @@ export default function ActionCenter() {
                                         <span className={cn(
                                             "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
                                             item.status === "pending" ? "bg-gray-500 text-white" :
-                                            item.status === "approved" ? "bg-[#36EA5C] text-white" : "bg-red-500 text-white"
+                                                item.status === "approved" ? "bg-[#36EA5C] text-white" : "bg-red-500 text-white"
                                         )}>
                                             {item.status}
                                         </span>
@@ -98,6 +203,11 @@ export default function ActionCenter() {
                                     <TableCell className="text-right">
                                         {item.status === "pending" && (
                                             <div className="flex justify-end gap-2">
+                                                {/* Edit Trigger */}
+                                                <Button size="sm" variant="outline" onClick={() => setEditingItem(item)}>
+                                                    Edit
+                                                </Button>
+
                                                 <Button size="sm" variant="destructive" onClick={() => handleResolve(item.id, item.type, "declined", item.status)}>
                                                     Decline
                                                 </Button>
@@ -113,6 +223,24 @@ export default function ActionCenter() {
                     </TableBody>
                 </Table>
             </div>
+
+            {/* --- The Edit Modal (Shadcn UI) --- */}
+            <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="capitalize">Edit {editingItem?.type} Request</DialogTitle>
+                        <DialogDescription>
+                            Make changes to this request before approving it.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    {/* Placeholder for the edit forms. We will map this to the specific forms next! */}
+                    <div className="py-6 text-center text-muted-foreground border-2 border-dashed rounded-md">
+                        <p>The {editingItem?.type} edit form will render here.</p>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
