@@ -892,7 +892,7 @@ const CreateGuestForm = ({ preFilledDate, onSuccess }) => {
 
 // --- 3. MAIN CALENDAR CELL COMPONENT ---
 
-const CalanderCell = ({ value }) => {
+const CalanderCell = ({ value, dayData = [] }) => {
     // 1. Upgraded State: Instead of true/false, we track WHICH modal is open
     const [activeModal, setActiveModal] = useState(null);
 
@@ -901,6 +901,14 @@ const CalanderCell = ({ value }) => {
     const permissions = user?.permissions || {};
 
     const preFilledDate = new Date(value.year, value.month - 1, value.day);
+
+    // --- NEW: Time Math for Figma Styling ---
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cellDate = new Date(value.year, value.month - 1, value.day);
+
+    const isPast = cellDate < today;
+    // ----------------------------------------
 
     return (
         <>
@@ -911,19 +919,30 @@ const CalanderCell = ({ value }) => {
                     <div
                         // The Left-Click Shortcut
                         onClick={() => setActiveModal("event")}
-                        className="flex w-full min-h-[180px] border-r-[1px] border-b-[1px] border-border cursor-pointer  hover:bg-muted/50"
+                        className="flex w-full min-h-[200px] border-r-[1px] border-b-[1px] border-border cursor-pointer  hover:bg-muted/50"
                     >
-                        <div className="w-full py-2 px-4">
-                            <div className="w-full flex justify-end">
-                                <p className={value.isCurrentMonth ? "text-foreground font-medium" : "text-muted-foreground"}>
+                        <div className="w-full">
+                            {/* --- NEW: The Day Number Highlight --- */}
+                        <div className="w-full flex pt-2 px-4 justify-end">
+                            {value.isToday ? (
+                                <div className="flex items-center justify-center w-[30px] h-[30px] rounded-full bg-[#FF542D] text-white font-bold">
+                                    {value.day}
+                                </div>
+                            ) : (
+                                <p className={`mb-[6px] ${value.isCurrentMonth ? "text-foreground font-medium" : "text-muted-foreground"}`}>
                                     {value.day}
                                 </p>
-                            </div>
+                            )}
+                        </div>
                             <br />
 
-                            {/* Future Event Cells will go here. 
-                                We will use e.stopPropagation() on them later! */}
-                            <EventCell />
+                            {/* The Event Blocks */}
+                        <div className="flex flex-col gap-1 w-full mt-1 overflow-y-auto">
+                            {dayData.map((item) => (
+                                // Pass the isPast flag down!
+                                <EventCell key={item.id} item={item} isPast={isPast} /> 
+                            ))}
+                        </div>
                         </div>
                     </div>
                 </ContextMenuTrigger>

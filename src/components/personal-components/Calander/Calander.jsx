@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CalanderCell from './calanderCell';
 import { calanderStore } from '@/store/globalStates';
+import { getCalendarData } from '@/actions/calendar';
 
 
 
@@ -19,6 +20,9 @@ import { calanderStore } from '@/store/globalStates';
 export default function Calendar() {
 
   const [printCalander, setPrintCalander] = useState([]);
+
+  // NEW: State to hold our grouped data dictionary from the backend
+  const [monthData, setMonthData] = useState({});
 
 
 
@@ -60,7 +64,7 @@ export default function Calendar() {
 
 
 
-  
+
 
 
 
@@ -87,16 +91,26 @@ export default function Calendar() {
   }, [year, month])
 
 
+  // UPDATED: Fetch data whenever the month/year changes
   useEffect(() => {
-    console.log(calander);
     setPrintCalander(calander);
 
-  }, [month, year])
+    const fetchData = async () => {
+      // Note: We pass month + 1 because Javascript months are 0-11, 
+      // but standard humans (and our backend) think 1-12.
+      const res = await getCalendarData(year, month + 1);
+      if (res.status === "SUCCESS") {
+        setMonthData(res.data);
+      }
+    };
+
+    fetchData();
+  }, [month, year, calander]);
 
 
 
 
-
+  
 
 
 
@@ -252,8 +266,14 @@ export default function Calendar() {
           <div className='w-full grid grid-cols-7'>
             {
               printCalander.map((value, index) => {
+
+                // Create a key that matches the "YYYY-MM-DD" format from our backend
+                const dateKey = `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`;
                 return (
-                  <CalanderCell key={index} value={value} />
+                  <CalanderCell
+                    key={index}
+                    value={value}
+                    dayData={monthData[dateKey] || []} />
                 )
               })
             }
