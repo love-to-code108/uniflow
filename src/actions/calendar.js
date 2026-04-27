@@ -10,7 +10,7 @@ export async function getCalendarData(year, month) {
         // Note: JavaScript months are 0-indexed in the Date constructor (0 = Jan, 11 = Dec)
         // We assume the frontend passes month as 1-12
         const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0, 23, 59, 59, 999); 
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
         // Run all three queries in parallel for maximum speed
         const [events, vehicles, guests] = await Promise.all([
@@ -48,7 +48,8 @@ export async function getCalendarData(year, month) {
                 id: ev.id,
                 type: "event",
                 title: ev.name,
-                time: ev.startTime,
+                startTime: ev.startTime, // Changed from 'time'
+                endTime: ev.endTime,     // NEW
                 status: ev.status
             });
         });
@@ -59,7 +60,8 @@ export async function getCalendarData(year, month) {
                 id: veh.id,
                 type: "vehicle",
                 title: veh.vehicle?.name || "Vehicle Request",
-                time: veh.startTime,
+                startTime: veh.startTime, // Changed from 'time'
+                endTime: veh.endTime,     // NEW
                 status: veh.status
             });
         });
@@ -69,7 +71,7 @@ export async function getCalendarData(year, month) {
             // We loop through the days they are staying to put a block on each calendar day
             let currentDate = new Date(guest.checkInDate);
             const checkOut = new Date(guest.checkOutDate);
-            
+
             while (currentDate <= checkOut) {
                 // Only add to the dictionary if the date falls within the month we are looking at
                 if (currentDate >= startDate && currentDate <= endDate) {
@@ -77,7 +79,6 @@ export async function getCalendarData(year, month) {
                         id: guest.id,
                         type: "guest",
                         title: `${guest.room?.name} (${guest.guestName})`,
-                        time: "All Day",
                         status: guest.status
                     });
                 }
