@@ -32,6 +32,25 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 
+import {
+    CreateEventForm,
+    CreateVehicleForm,
+    CreateGuestForm
+} from "@/components/personal-components/Calander/calanderCell";
+
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+
+
 export default function ActionCenter() {
     const [data, setData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +64,8 @@ export default function ActionCenter() {
 
     // --- Inline Editing State ---
     const [editingItem, setEditingItem] = useState(null);
+    // --- NEW: Decline Confirmation State ---
+    const [decliningItem, setDecliningItem] = useState(null);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -92,8 +113,8 @@ export default function ActionCenter() {
         // 3. Category Filter (Translates UI text to DB type)
         if (typeFilter !== "All Categories") {
             const mappedType = typeFilter === "Events" ? "event" :
-                               typeFilter === "Vehicles" ? "vehicle" :
-                               typeFilter === "Guests" ? "guest" : "all";
+                typeFilter === "Vehicles" ? "vehicle" :
+                    typeFilter === "Guests" ? "guest" : "all";
             result = result.filter(item => item.type === mappedType);
         }
 
@@ -127,10 +148,10 @@ export default function ActionCenter() {
                 <p className="text-muted-foreground mt-2">Manage, filter, and resolve all incoming resource requests.</p>
             </div>
 
-           
+
             {/* --- The Filters Bar (Shadcn UI) --- */}
             <div className="flex flex-col md:flex-row gap-4 mb-6 items-end">
-                
+
                 <div className="flex flex-col gap-2 w-full md:w-auto">
                     <Label htmlFor="search">Search Requests</Label>
                     <Input
@@ -232,7 +253,12 @@ export default function ActionCenter() {
                                                     Edit
                                                 </Button>
 
-                                                <Button size="sm" variant="destructive" onClick={() => handleResolve(item.id, item.type, "declined", item.status)}>
+                                                {/* --- Change this section inside your table --- */}
+                                                <Button
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    onClick={() => setDecliningItem(item)} // Changed this line!
+                                                >
                                                     Decline
                                                 </Button>
                                                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleResolve(item.id, item.type, "approved", item.status)}>
@@ -250,20 +276,73 @@ export default function ActionCenter() {
 
             {/* --- The Edit Modal (Shadcn UI) --- */}
             <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="capitalize">Edit {editingItem?.type} Request</DialogTitle>
                         <DialogDescription>
                             Make changes to this request before approving it.
                         </DialogDescription>
                     </DialogHeader>
-                    
-                    {/* Placeholder for the edit forms. We will map this to the specific forms next! */}
-                    <div className="py-6 text-center text-muted-foreground border-2 border-dashed rounded-md">
-                        <p>The {editingItem?.type} edit form will render here.</p>
-                    </div>
+
+                    {/* --- THE DYNAMIC FORMS --- */}
+                    {editingItem?.type === "event" && (
+                        <CreateEventForm
+                            initialData={editingItem}
+                            onSuccess={() => {
+                                setEditingItem(null);
+                                loadData(); // Refresh table after edit
+                            }}
+                        />
+                    )}
+
+                    {editingItem?.type === "vehicle" && (
+                        <CreateVehicleForm
+                            initialData={editingItem}
+                            onSuccess={() => {
+                                setEditingItem(null);
+                                loadData();
+                            }}
+                        />
+                    )}
+
+                    {editingItem?.type === "guest" && (
+                        <CreateGuestForm
+                            initialData={editingItem}
+                            onSuccess={() => {
+                                setEditingItem(null);
+                                loadData();
+                            }}
+                        />
+                    )}
                 </DialogContent>
             </Dialog>
+
+
+            {/* --- The Decline Confirmation Modal (Shadcn UI) --- */}
+            <AlertDialog open={!!decliningItem} onOpenChange={(open) => !open && setDecliningItem(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will officially decline the <span className="capitalize font-bold">{decliningItem?.type}</span> request from <span className="font-bold">{decliningItem?.user?.name || decliningItem?.user?.username || "Unknown"}</span>. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => {
+                                if (decliningItem) {
+                                    handleResolve(decliningItem.id, decliningItem.type, "declined", decliningItem.status);
+                                    setDecliningItem(null); // Close the modal after clicking
+                                }
+                            }}
+                        >
+                            Yes, Decline Request
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
         </div>
     );

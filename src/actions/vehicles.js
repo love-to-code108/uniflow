@@ -118,3 +118,26 @@ export async function submitVehicleRequest(formData, flags = {}) {
         return { status: "ERROR", message: "Failed to process vehicle request." };
     }
 }
+
+
+
+
+export const updateVehicleRequest = async (id, payload) => {
+    try {
+        await db.vehicleRequest.update({
+            where: { id: id },
+            data: {
+                vehicleId: payload.vehicleId,
+                date: payload.eventDate,
+                startTime: payload.startTime,
+                endTime: payload.endTime,
+                destination: payload.destination,
+                purpose: payload.purpose
+            }
+        });
+        return { status: "SUCCESS" };
+    } catch (error) {
+        console.error("Failed to update vehicle:", error);
+        return { status: "ERROR", message: "Failed to update vehicle request." };
+    }
+};

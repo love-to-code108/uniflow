@@ -179,3 +179,27 @@ export async function submitEventRequest(formData, flags = {}) {
         return { status: "ERROR", message: "Failed to process request." };
     }
 }
+
+
+
+
+export const updateEventRequest = async (id, payload) => {
+    try {
+        await db.event.update({
+            where: { id: id },
+            data: {
+                name: payload.eventName,
+                description: payload.eventDescription,
+                date: payload.eventDate,
+                startTime: payload.startTime,
+                endTime: payload.endTime,
+                expectedStudents: parseInt(payload.expectedStudents),
+                registrationLink: payload.registrationLink
+            }
+        });
+        return { status: "SUCCESS" };
+    } catch (error) {
+        console.error("Failed to update event:", error);
+        return { status: "ERROR", message: "Failed to update event." };
+    }
+};

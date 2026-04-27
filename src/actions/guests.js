@@ -101,3 +101,24 @@ export async function submitGuestRequest(formData, flags = {}) {
         return { status: "ERROR", message: "Failed to process guest room request." };
     }
 }
+
+
+
+export const updateGuestRequest = async (id, payload) => {
+    try {
+        await db.guestRoomRequest.update({
+            where: { id: id },
+            data: {
+                roomId: payload.roomId,
+                checkInDate: payload.checkInDate,
+                checkOutDate: payload.checkOutDate,
+                guestName: payload.guestName,
+                purpose: payload.purpose
+            }
+        });
+        return { status: "SUCCESS" };
+    } catch (error) {
+        console.error("Failed to update guest:", error);
+        return { status: "ERROR", message: "Failed to update guest request." };
+    }
+};

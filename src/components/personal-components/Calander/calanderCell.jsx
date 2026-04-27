@@ -63,6 +63,10 @@ import {
 import { submitVehicleRequest } from "@/actions/vehicles";
 import { submitGuestRequest } from "@/actions/guests";
 
+import { updateEventRequest } from "@/actions/events";
+import { updateVehicleRequest } from "@/actions/vehicles";
+import { updateGuestRequest } from "@/actions/guests";
+
 
 // --- 1. DATA & SCHEMA CONFIGURATION ---
 
@@ -107,11 +111,20 @@ const formSchema = z.object({
 
 // --- 2. SEPARATED FORM COMPONENT ---
 
-const CreateEventForm = ({ preFilledDate, onSuccess }) => {
+export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
 
     const form = useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: {
+        // 2. Dynamically set default values based on Edit Mode or Create Mode
+        defaultValues: initialData ? {
+            eventName: initialData.name || "",
+            eventDescription: initialData.description || "",
+            eventDate: new Date(initialData.sortDate), // Convert DB date string back to Date object
+            startTime: initialData.startTime || "",
+            endTime: initialData.endTime || "",
+            expectedStudents: initialData.expectedStudents || "",
+            registrationLink: initialData.registrationLink || "",
+        } : {
             eventName: "",
             eventDescription: "",
             eventDate: preFilledDate,
@@ -140,32 +153,25 @@ const CreateEventForm = ({ preFilledDate, onSuccess }) => {
     const onSubmit = async (data) => {
         // --- THE TIMEZONE FIX ---
         // Grab the date they picked, and force the time to 12:00 PM (Noon) local time
-        const safeDate = new Date(
-            data.eventDate.getFullYear(),
-            data.eventDate.getMonth(),
-            data.eventDate.getDate(),
-            12, 0, 0
-        );
+        const safeDate = new Date(data.eventDate.getFullYear(), data.eventDate.getMonth(), data.eventDate.getDate(), 12, 0, 0);
+        const payload = { ...data, eventDate: safeDate };
 
-        // Swap out the raw date for our timezone-proof date
-        const payload = {
-            ...data,
-            eventDate: safeDate
-        };
-        // ------------------------
-
-        // 1. Initial attempt (Use the payload now, not the raw data!)
-        const response = await submitEventRequest(payload);
-
-        // 2. Handle Gatekeeper Rejections
-        if (response.status === "ERROR") {
-            toast.error(response.message); // Will show "Unauthorized" or "Forbidden"
-            return; // Stop execution
+        let response;
+        if (initialData && initialData.id) {
+            // Edit Mode
+            response = await updateEventRequest(initialData.id, payload);
+        } else {
+            // Create Mode
+            response = await submitEventRequest(payload);
         }
 
-        // 3. Handle standard backend flags
+        if (response.status === "ERROR") {
+            toast.error(response.message);
+            return;
+        }
+
         if (response.status === "SUCCESS") {
-            toast.success(`Event requested in ${response.venue}!`);
+            toast.success(initialData ? "Event updated successfully!" : `Event requested in ${response.venue || "venue"}!`);
             onSuccess(false);
         }
         else if (response.status === "CAPACITY_WARNING") {
@@ -432,10 +438,17 @@ const vehicleFormSchema = z.object({
 });
 
 // --- VEHICLE FORM COMPONENT ---
-const CreateVehicleForm = ({ preFilledDate, onSuccess }) => {
+export const CreateVehicleForm = ({ preFilledDate, onSuccess, initialData }) => {
     const form = useForm({
         resolver: zodResolver(vehicleFormSchema),
-        defaultValues: {
+        defaultValues: initialData ? {
+            vehicleId: initialData.vehicleId || "",
+            eventDate: new Date(initialData.sortDate),
+            startTime: initialData.startTime || "",
+            endTime: initialData.endTime || "",
+            destination: initialData.destination || "",
+            purpose: initialData.purpose || "",
+        } : {
             vehicleId: "",
             eventDate: preFilledDate,
             startTime: "",
@@ -452,11 +465,19 @@ const CreateVehicleForm = ({ preFilledDate, onSuccess }) => {
         ? timeSlots.filter(slot => slot.value > selectedStartTime)
         : timeSlots;
 
+
+
+
     const onSubmit = async (data) => {
         const safeDate = new Date(data.eventDate.getFullYear(), data.eventDate.getMonth(), data.eventDate.getDate(), 12, 0, 0);
         const payload = { ...data, eventDate: safeDate };
 
-        const response = await submitVehicleRequest(payload);
+        let response;
+        if (initialData && initialData.id) {
+            response = await updateVehicleRequest(initialData.id, payload);
+        } else {
+            response = await submitVehicleRequest(payload);
+        }
 
         if (response.status === "ERROR") {
             toast.error(response.message);
@@ -464,7 +485,7 @@ const CreateVehicleForm = ({ preFilledDate, onSuccess }) => {
         }
 
         if (response.status === "SUCCESS") {
-            toast.success("Vehicle request submitted successfully!");
+            toast.success(initialData ? "Vehicle request updated!" : "Vehicle request submitted successfully!");
             if (onSuccess) onSuccess(false);
         }
     };
@@ -669,13 +690,19 @@ const guestFormSchema = z.object({
 });
 
 // --- GUEST FORM COMPONENT ---
-const CreateGuestForm = ({ preFilledDate, onSuccess }) => {
+export const CreateGuestForm = ({ preFilledDate, onSuccess, initialData }) => {
     const form = useForm({
         resolver: zodResolver(guestFormSchema),
-        defaultValues: {
+        defaultValues: initialData ? {
+            roomId: initialData.roomId || "",
+            checkInDate: new Date(initialData.checkInDate),
+            checkOutDate: new Date(initialData.checkOutDate),
+            guestName: initialData.guestName || "",
+            purpose: initialData.purpose || "",
+        } : {
             roomId: "",
             checkInDate: preFilledDate,
-            checkOutDate: preFilledDate, // Defaults to same day
+            checkOutDate: preFilledDate,
             guestName: "",
             purpose: "",
         }
@@ -683,27 +710,16 @@ const CreateGuestForm = ({ preFilledDate, onSuccess }) => {
 
     const onSubmit = async (data) => {
         // --- THE DOUBLE TIMEZONE FIX ---
-        const safeCheckIn = new Date(
-            data.checkInDate.getFullYear(),
-            data.checkInDate.getMonth(),
-            data.checkInDate.getDate(),
-            12, 0, 0
-        );
+        const safeCheckIn = new Date(data.checkInDate.getFullYear(), data.checkInDate.getMonth(), data.checkInDate.getDate(), 12, 0, 0);
+        const safeCheckOut = new Date(data.checkOutDate.getFullYear(), data.checkOutDate.getMonth(), data.checkOutDate.getDate(), 12, 0, 0);
+        const payload = { ...data, checkInDate: safeCheckIn, checkOutDate: safeCheckOut };
 
-        const safeCheckOut = new Date(
-            data.checkOutDate.getFullYear(),
-            data.checkOutDate.getMonth(),
-            data.checkOutDate.getDate(),
-            12, 0, 0
-        );
-
-        const payload = {
-            ...data,
-            checkInDate: safeCheckIn,
-            checkOutDate: safeCheckOut
-        };
-
-        const response = await submitGuestRequest(payload);
+        let response;
+        if (initialData && initialData.id) {
+            response = await updateGuestRequest(initialData.id, payload);
+        } else {
+            response = await submitGuestRequest(payload);
+        }
 
         if (response.status === "ERROR") {
             toast.error(response.message);
@@ -711,7 +727,7 @@ const CreateGuestForm = ({ preFilledDate, onSuccess }) => {
         }
 
         if (response.status === "SUCCESS") {
-            toast.success("Guest room request submitted successfully!");
+            toast.success(initialData ? "Guest room request updated!" : "Guest room request submitted successfully!");
             if (onSuccess) onSuccess(false);
         }
     };
