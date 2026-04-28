@@ -193,7 +193,9 @@ export const updateEventRequest = async (id, payload) => {
                 date: payload.eventDate,
                 startTime: payload.startTime,
                 endTime: payload.endTime,
-                expectedStudents: parseInt(payload.expectedStudents),
+                // --- THE FIX IS HERE ---
+                // Mapping the form's 'expectedStudents' to the database's 'expectedNumberOfStudents'
+                expectedNumberOfStudents: parseInt(payload.expectedStudents), 
                 registrationLink: payload.registrationLink
             }
         });

@@ -930,7 +930,7 @@ const CalanderCell = ({ value, dayData = [], activeFilter = "all" }) => {
         <>
             <ContextMenu>
                 <ContextMenuTrigger asChild>
-                    <div className="relative flex flex-col w-full min-h-[150px] border-r-[1px] border-b-[1px] border-border hover:bg-muted/50 p-2">
+                    <div className="relative flex flex-col w-full min-h-[180px] border-r-[1px] border-b-[1px] border-border hover:bg-muted/50 p-2">
 
                         {/* THE BULLETPROOF CLICK CATCHER */}
                         <div

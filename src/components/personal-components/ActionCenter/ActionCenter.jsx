@@ -246,23 +246,26 @@ export default function ActionCenter() {
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-right">
+                                        {/* Show Edit, Decline, and Approve for PENDING requests */}
                                         {item.status === "pending" && (
                                             <div className="flex justify-end gap-2">
-                                                {/* Edit Trigger */}
                                                 <Button size="sm" variant="outline" onClick={() => setEditingItem(item)}>
                                                     Edit
                                                 </Button>
-
-                                                {/* --- Change this section inside your table --- */}
-                                                <Button
-                                                    size="sm"
-                                                    variant="destructive"
-                                                    onClick={() => setDecliningItem(item)} // Changed this line!
-                                                >
+                                                <Button size="sm" variant="destructive" onClick={() => setDecliningItem(item)}>
                                                     Decline
                                                 </Button>
                                                 <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleResolve(item.id, item.type, "approved", item.status)}>
                                                     Approve
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {/* Show ONLY the Decline button for APPROVED requests */}
+                                        {item.status === "approved" && (
+                                            <div className="flex justify-end gap-2">
+                                                <Button size="sm" variant="destructive" onClick={() => setDecliningItem(item)}>
+                                                    Decline
                                                 </Button>
                                             </div>
                                         )}
