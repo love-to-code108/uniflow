@@ -122,7 +122,11 @@ export async function getBadgeDetails(id, type) {
         if (type === "event") {
             data = await db.event.findUnique({
                 where: { id },
-                include: { user: { select: { name: true, username: true } } }
+                // --- ADD venue: true HERE ---
+                include: { 
+                    user: { select: { name: true, username: true } },
+                    venue: true 
+                }
             });
         }
         else if (type === "vehicle") {
@@ -380,7 +384,9 @@ export const getPublicEvents = async (year, month) => {
                 date: true,
                 startTime: true,
                 endTime: true,
-                venue: true,
+                venue: {
+                    select: { name: true }
+                },
                 registrationLink: true,
             }
         });
@@ -398,7 +404,7 @@ export const getPublicEvents = async (year, month) => {
                 endTime: event.endTime,
                 status: "approved",
                 description: event.description,
-                venue: event.venue,
+                venue: event.venue?.name,
                 registrationLink: event.registrationLink,
                 date: event.date
             });
@@ -408,5 +414,20 @@ export const getPublicEvents = async (year, month) => {
     } catch (error) {
         console.error("Public fetch error:", error);
         return { status: "ERROR", message: "Failed to fetch public events." };
+    }
+}
+
+
+
+// Add this at the bottom of the file
+export async function getAllVenues() {
+    try {
+        const venues = await db.venue.findMany({
+            orderBy: { capacity: 'asc' } // Sorts from smallest to largest
+        });
+        return { status: "SUCCESS", data: venues };
+    } catch (error) {
+        console.error("Failed to fetch venues:", error);
+        return { status: "ERROR", message: "Failed to load venues." };
     }
 }

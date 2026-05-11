@@ -44,7 +44,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-import { getBadgeDetails, updateBadgeDetails, resolveBadgeStatus } from "@/actions/calendar";
+import { getBadgeDetails, updateBadgeDetails, resolveBadgeStatus, getAllVenues } from "@/actions/calendar";
 import { toast } from "sonner";
 
 const truncateText = (text, maxLength) => {
@@ -80,6 +80,7 @@ const EventCell = ({ item, isPast }) => {
     const user = useAuthStore((state) => state.user);
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
     const [isEditing, setIsEditing] = useState(false);
+    const [venuesList, setVenuesList] = useState([]);
     const [editForm, setEditForm] = useState({});
 
     const handleEventClick = (e) => {
@@ -95,6 +96,16 @@ const EventCell = ({ item, isPast }) => {
                 if (response.status === "SUCCESS") {
                     setDeepDetails(response.data);
                 }
+                
+                // --- NEW: Fetch dynamic venues if it is an event ---
+                if (item.type === "event") {
+                    const vRes = await getAllVenues();
+                    if (vRes.status === "SUCCESS") {
+                        setVenuesList(vRes.data);
+                    }
+                }
+                // ---------------------------------------------------
+
                 setIsLoading(false);
             };
             fetchDetails();
@@ -120,7 +131,8 @@ const EventCell = ({ item, isPast }) => {
             description: deepDetails?.description || "",
             destination: deepDetails?.destination || "",
             purpose: deepDetails?.purpose || "",
-            venue: deepDetails?.venue || item.venue || "Auditorium 1",
+            // --- NEW: Map the relational ID ---
+            venueId: deepDetails?.venue?.id || "", 
         });
         setIsEditing(true);
     };
@@ -330,24 +342,27 @@ const EventCell = ({ item, isPast }) => {
 
 
                                 {/* VENUE (Only for events) */}
+                                {/* DYNAMIC VENUE (Only for events) */}
                                 {item.type === "event" && (
                                     <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
                                         <span className="font-semibold text-right text-sm text-muted-foreground">Venue:</span>
-                                        {isEditing && canApprove ? ( // Only admins/approvers can change venues
+                                        {isEditing && canApprove ? (
                                             <div className="col-span-3">
-                                                <Select value={editForm.venue} onValueChange={(val) => setEditForm({ ...editForm, venue: val })}>
+                                                <Select value={editForm.venueId} onValueChange={(val) => setEditForm({ ...editForm, venueId: val })}>
                                                     <SelectTrigger className="h-8 text-sm w-full">
                                                         <SelectValue placeholder="Select Venue" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="Auditorium 1">Auditorium 1</SelectItem>
-                                                        <SelectItem value="Auditorium 2">Auditorium 2</SelectItem>
-                                                        <SelectItem value="Auditorium 3">Auditorium 3</SelectItem>
+                                                        {venuesList.map((v) => (
+                                                            <SelectItem key={v.id} value={v.id}>
+                                                                {v.name} (Max: {v.capacity})
+                                                            </SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
                                         ) : (
-                                            <span className="col-span-3 font-medium text-sm">{deepDetails?.venue || "TBD"}</span>
+                                            <span className="col-span-3 font-medium text-sm">{deepDetails?.venue?.name || "TBD"}</span>
                                         )}
                                     </div>
                                 )}
