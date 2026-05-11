@@ -431,3 +431,54 @@ export async function getAllVenues() {
         return { status: "ERROR", message: "Failed to load venues." };
     }
 }
+
+
+
+// Add this to the bottom of src/actions/calendar.js
+
+const processCreateVenue = async (userId, venueData) => {
+    try {
+        // 1. Verify the user has the specific system management permission
+        const user = await db.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
+        if (user?.permissions?.can_manage_system !== true) {
+            return { status: "ERROR", message: "Unauthorized: You do not have system management privileges." };
+        }
+
+        // 2. Check if a venue with this exact name already exists
+        const existingVenue = await db.venue.findUnique({
+            where: { name: venueData.name }
+        });
+
+        if (existingVenue) {
+            return { status: "ERROR", message: "A venue with this name already exists in the system." };
+        }
+
+        // 3. Create the new venue
+        await db.venue.create({
+            data: {
+                name: venueData.name,
+                capacity: parseInt(venueData.capacity),
+            }
+        });
+
+        return { status: "SUCCESS", message: `Venue '${venueData.name}' created successfully!` };
+
+    } catch (error) {
+        console.error("Error creating venue:", error);
+        return { status: "ERROR", message: "Failed to create the new venue." };
+    }
+};
+
+export async function createNewVenue(venueData) {
+    try {
+        const secureAction = await withAuthOnly(processCreateVenue);
+        return await secureAction(venueData);
+    } catch (error) {
+        console.error("Action Wrapper Error:", error);
+        return { status: "ERROR", message: "Failed to process venue creation request." };
+    }
+}

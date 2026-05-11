@@ -46,31 +46,44 @@ const processEventRequest = async (userId, formData, flags = {}) => {
         const hasPriority = user?.permissions?.has_priority === true;
         const isAdmin = user?.permissions?.can_approve_events === true;
 
-        // --- DYNAMIC VENUE ASSIGNMENT ---
-        // 1. Fetch all available venues from the database
-        const allVenues = await db.venue.findMany();
-        
-        const mini = allVenues.find(v => v.name === "Mini seminar hall");
-        const firstFloor = allVenues.find(v => v.name === "First floor seminar hall");
-        const basement = allVenues.find(v => v.name === "Basement seminar hall");
-        const others = allVenues.find(v => v.name === "Others");
+        // --- FULLY DYNAMIC VENUE ASSIGNMENT ---
+        // 1. Fetch all venues sorted by capacity (Smallest to Largest)
+        const allVenues = await db.venue.findMany({
+            orderBy: { capacity: 'asc' }
+        });
 
-        if (!mini || !firstFloor || !basement || !others) {
-            return { status: "ERROR", message: "Venues are not properly set up in the database." };
+        if (allVenues.length === 0) {
+            return { status: "ERROR", message: "No venues found in the database. Please add venues via the Admin panel." };
         }
 
-        // 2. Best Fit Logic based on strict capacities
-        let targetVenue = mini;
-        if (expectedStudents > mini.capacity && expectedStudents <= firstFloor.capacity) targetVenue = firstFloor;
-        if (expectedStudents > firstFloor.capacity && expectedStudents <= basement.capacity) targetVenue = basement;
+        // Separate the special "Others" fallback from the standard rooms
+        const others = allVenues.find(v => v.name.toLowerCase() === "others");
+        const standardVenues = allVenues.filter(v => v.name.toLowerCase() !== "others");
 
-        // 3. The Strict Capacity Check
-        if (expectedStudents > basement.capacity) {
+        // 2. Mathematical Best Fit Logic
+        // Find the smallest room that can fit the expected students
+        let targetVenue = null;
+        for (const venue of standardVenues) {
+            if (expectedStudents <= venue.capacity) {
+                targetVenue = venue;
+                break; // Stop at the first room that fits!
+            }
+        }
+
+        // 3. Strict Capacity Check
+        if (!targetVenue) {
+            // If targetVenue is still null, expectedStudents is larger than our biggest standard room
+            const maxCapacity = standardVenues.length > 0 ? standardVenues[standardVenues.length - 1].capacity : 0;
+
             if (!isAdmin) {
                 return {
                     status: "ERROR",
-                    message: `Capacity exceeds maximum allowed (${basement.capacity}). Only admins can book 'Others' for larger events.`
+                    message: `Capacity exceeds maximum allowed (${maxCapacity}). Only admins can book for larger events.`
                 };
+            }
+            
+            if (!others) {
+                 return { status: "ERROR", message: "Admin override failed: 'Others' venue is missing from the database." };
             }
             targetVenue = others;
         }
@@ -90,7 +103,7 @@ const processEventRequest = async (userId, formData, flags = {}) => {
                     startTime: startTime,
                     endTime: endTime,
                     expectedNumberOfStudents: expectedStudents,
-                    venueId: venueToBook.id, // Now using Relation ID!
+                    venueId: venueToBook.id, 
                     registrationLink: registrationLink || null,
                     status: "pending",
                     userId: userId
@@ -99,19 +112,19 @@ const processEventRequest = async (userId, formData, flags = {}) => {
         };
 
         // Priority Bypass
-        if (hasPriority && targetVenue.name !== "Others") {
+        if (hasPriority && targetVenue.name.toLowerCase() !== "others") {
             await createPendingEvent(targetVenue);
             return { status: "SUCCESS", venue: targetVenue.name };
         }
 
         // Conflict Checker
         const checkAvailability = async (venueToCheck) => {
-            if (venueToCheck.name === "Others") return true; 
+            if (venueToCheck.name.toLowerCase() === "others") return true; 
             
             const overlappingEvents = await db.event.findMany({
                 where: {
                     date: eventDate,
-                    venueId: venueToCheck.id, // Check by Relation ID
+                    venueId: venueToCheck.id, 
                     status: { in: ["pending", "approved"] },
                     AND: [
                         { startTime: { lt: endTime } },
@@ -129,11 +142,11 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             return { status: "SUCCESS", venue: targetVenue.name };
         }
 
-        // --- FALLBACK LOOP ---
-        if (!flags.acceptedVenueId && targetVenue.name !== "Others") {
-            const fallbacks = [];
-            if (targetVenue.name === "Mini seminar hall") fallbacks.push(firstFloor, basement);
-            if (targetVenue.name === "First floor seminar hall") fallbacks.push(basement);
+        // --- DYNAMIC FALLBACK LOOP ---
+        // If the target is full, automatically check all rooms LARGER than the target
+        if (!flags.acceptedVenueId && targetVenue.name.toLowerCase() !== "others") {
+            const targetIndex = standardVenues.findIndex(v => v.id === targetVenue.id);
+            const fallbacks = standardVenues.slice(targetIndex + 1); // Slice gives us everything larger
 
             for (const fallbackVenue of fallbacks) {
                 const isFallbackFree = await checkAvailability(fallbackVenue);
@@ -141,7 +154,7 @@ const processEventRequest = async (userId, formData, flags = {}) => {
                     return {
                         status: "ALTERNATIVE_AVAILABLE",
                         suggestedVenue: fallbackVenue.name,
-                        suggestedVenueId: fallbackVenue.id, // Pass the ID back to frontend
+                        suggestedVenueId: fallbackVenue.id,
                     };
                 }
             }
@@ -149,7 +162,7 @@ const processEventRequest = async (userId, formData, flags = {}) => {
 
         return {
             status: "NO_VENUES",
-            message: "All seminar halls are completely booked for this time slot."
+            message: "All suitable seminar halls are completely booked for this time slot."
         };
 
     } catch (error) {
@@ -180,7 +193,7 @@ export const updateEventRequest = async (id, payload) => {
                 endTime: payload.endTime,
                 expectedNumberOfStudents: parseInt(payload.expectedStudents), 
                 registrationLink: payload.registrationLink,
-                venueId: payload.venueId // Now updating Relation ID!
+                venueId: payload.venueId 
             }
         });
         return { status: "SUCCESS" };

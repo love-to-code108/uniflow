@@ -8,7 +8,8 @@ import {
     Users, 
     Car, 
     BedDouble, 
-    Orbit 
+    Orbit,
+    MapPin
 } from "lucide-react"
 
 import {
@@ -35,6 +36,7 @@ import Form from "./personal-components/forms/CreateNewUserForm";
 import { useAuthStore, useAppStore } from "@/store/globalStates"; 
 import { useRouter } from "next/navigation";
 import { logoutUser } from "@/lib/userAuth";
+import CreateNewVenueForm from "./personal-components/forms/CreateNewVenueForm";
 
 export function AppSidebar() {
     // --- AUTH & PERMISSIONS ---
@@ -131,6 +133,9 @@ export function AppSidebar() {
                     </SidebarMenu>
                 </SidebarGroup>
 
+
+
+
                 {/* --- GROUP 2: MANAGEMENT (Conditionally Rendered) --- */}
                 {canManageResources && (
                     <SidebarGroup>
@@ -176,6 +181,37 @@ export function AppSidebar() {
                                     </div>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
+
+
+
+
+
+
+
+                            {/* --- CONDITIONAL: ADD VENUE (System Managers Only) --- */}
+                            {permissions.can_manage_system && (
+                                <SidebarMenuItem>
+                                    <Dialog>
+                                        <DialogTrigger asChild className={"w-full h-full"}>
+                                            <SidebarMenuButton className={"hover:cursor-pointer"}>
+                                                <div className="w-full flex items-center gap-3">
+                                                    <MapPin size={16} />
+                                                    <p>Add Venue</p>
+                                                </div>
+                                            </SidebarMenuButton>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Add a New Venue</DialogTitle>
+                                                <DialogDescription>
+                                                    Register a new physical space and define its strict seating capacity for event scheduling.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <CreateNewVenueForm />
+                                        </DialogContent>
+                                    </Dialog>
+                                </SidebarMenuItem>
+                            )}
 
                         </SidebarMenu>
                     </SidebarGroup>
