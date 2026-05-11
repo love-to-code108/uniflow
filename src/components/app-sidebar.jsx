@@ -37,6 +37,7 @@ import { useAuthStore, useAppStore } from "@/store/globalStates";
 import { useRouter } from "next/navigation";
 import { logoutUser } from "@/lib/userAuth";
 import CreateNewVenueForm from "./personal-components/forms/CreateNewVenueForm";
+import CreateNewVehicleForm from "./personal-components/forms/CreateNewVehicleForm";
 
 export function AppSidebar() {
     // --- AUTH & PERMISSIONS ---
@@ -164,14 +165,30 @@ export function AppSidebar() {
                                 </Dialog>
                             </SidebarMenuItem>
 
-                            <SidebarMenuItem>
-                                <SidebarMenuButton className="hover:cursor-pointer text-muted-foreground">
-                                    <div className="w-full flex items-center gap-3">
-                                        <Car size={16} />
-                                        <p>Add Vehicle</p>
-                                    </div>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
+                            {/* --- CONDITIONAL: ADD VEHICLE (System Managers Only) --- */}
+                            {permissions.can_manage_system && (
+                                <SidebarMenuItem>
+                                    <Dialog>
+                                        <DialogTrigger asChild className={"w-full h-full"}>
+                                            <SidebarMenuButton className={"hover:cursor-pointer"}>
+                                                <div className="w-full flex items-center gap-3">
+                                                    <Car size={16} />
+                                                    <p>Add Vehicle</p>
+                                                </div>
+                                            </SidebarMenuButton>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Add a New Vehicle</DialogTitle>
+                                                <DialogDescription>
+                                                    Register a new vehicle to the organization's fleet.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <CreateNewVehicleForm />
+                                        </DialogContent>
+                                    </Dialog>
+                                </SidebarMenuItem>
+                            )}
 
                             <SidebarMenuItem>
                                 <SidebarMenuButton className="hover:cursor-pointer text-muted-foreground">

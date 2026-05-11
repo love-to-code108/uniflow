@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { withPermissions } from "@/actions/gatekeeper"; 
+import { withAuthOnly } from "@/actions/gatekeeper";
 
 // 1. The Core Logic
 const processVehicleRequest = async (userId, formData, flags = {}) => {
@@ -141,3 +142,55 @@ export const updateVehicleRequest = async (id, payload) => {
         return { status: "ERROR", message: "Failed to update vehicle request." };
     }
 };
+
+
+
+// --- CREATE NEW VEHICLE (ADMIN ONLY) ---
+
+const processCreateVehicle = async (userId, vehicleData) => {
+    try {
+        // 1. Verify the user has system management privileges
+        const user = await db.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
+        if (user?.permissions?.can_manage_system !== true) {
+            return { status: "ERROR", message: "Unauthorized: You do not have system management privileges." };
+        }
+
+        // 2. Check if a vehicle with this exact name already exists
+        const existingVehicle = await db.vehicle.findUnique({
+            where: { name: vehicleData.name }
+        });
+
+        if (existingVehicle) {
+            return { status: "ERROR", message: "A vehicle with this name already exists in the system." };
+        }
+
+        // 3. Create the new vehicle
+        await db.vehicle.create({
+            data: {
+                name: vehicleData.name
+            }
+        });
+
+        return { status: "SUCCESS", message: `Vehicle '${vehicleData.name}' added to the fleet successfully!` };
+
+    } catch (error) {
+        console.error("Error creating vehicle:", error);
+        return { status: "ERROR", message: "Failed to add the new vehicle." };
+    }
+};
+
+export async function createNewVehicle(vehicleData) {
+    try {
+        // We use withAuthOnly here (or withPermissions if you prefer) to ensure they are logged in, 
+        // and we manually verify the 'can_manage_system' inside the process function.
+        const secureAction = await withAuthOnly(processCreateVehicle);
+        return await secureAction(vehicleData);
+    } catch (error) {
+        console.error("Action Wrapper Error:", error);
+        return { status: "ERROR", message: "Failed to process vehicle creation request." };
+    }
+}

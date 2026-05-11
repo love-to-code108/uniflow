@@ -75,6 +75,7 @@ const EventCell = ({ item, isPast }) => {
     const [deepDetails, setDeepDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [isApproveAlertOpen, setIsApproveAlertOpen] = useState(false);
 
     // --- Edit State & Auth Store ---
     const user = useAuthStore((state) => state.user);
@@ -173,9 +174,11 @@ const EventCell = ({ item, isPast }) => {
             setDeepDetails(response.data);
             item.status = "approved";
             incrementRefresh();
+            setIsApproveAlertOpen(false); // <-- Close dialog on success
         } else {
             toast.error(response.message);
             incrementRefresh();
+            setIsApproveAlertOpen(false); // <-- Close dialog on error
         }
         setIsLoading(false);
     };
@@ -198,7 +201,11 @@ const EventCell = ({ item, isPast }) => {
     };
 
     const getColors = () => {
-        if (item.status === "pending") return "bg-[#B8B8B8] text-black";
+        if (item.status === "pending") {
+            // --- THE FIX: Priority Requests get the special orange color! ---
+            if (item.isPriority) return "bg-[#FF876B] text-black shadow-md border border-[#FF876B]/50";
+            return "bg-[#B8B8B8] text-black";
+        }
         if (item.type === "event") return isPast ? "bg-[#040071] text-white" : "bg-[#0802C0] text-white";
         if (item.type === "vehicle") return isPast ? "bg-[#1D7930] text-white" : "bg-[#25973D] text-white";
         if (item.type === "guest") return isPast ? "bg-[#693319] text-white" : "bg-[#974B25] text-white";
@@ -508,10 +515,36 @@ const EventCell = ({ item, isPast }) => {
                                                     </AlertDialogContent>
                                                 </AlertDialog>
 
+                                                {/* --- THE NEW APPROVE DIALOG --- */}
                                                 {item.status === "pending" && (
-                                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleApprove}>
-                                                        Approve
-                                                    </Button>
+                                                    <AlertDialog open={isApproveAlertOpen} onOpenChange={setIsApproveAlertOpen}>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                                                                Approve
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Approve this {item.type}?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Are you sure you want to approve this request? This will lock in the schedule and secure the resource.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        handleApprove();
+                                                                    }}
+                                                                    disabled={isLoading}
+                                                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                                                >
+                                                                    {isLoading ? "Approving..." : "Yes, Approve"}
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
                                                 )}
                                             </div>
                                         )}
