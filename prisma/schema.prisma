@@ -32,15 +32,19 @@ model Event{
   name          String
   description   String
   userId        String
-  user          User    @relation(fields:[userId], references:[id])
+  user          User      @relation(fields:[userId], references:[id])
+  
+  // --- THE NEW VENUE RELATION ---
+  venueId       String
+  venue         Venue     @relation(fields:[venueId], references:[id])
+  // ------------------------------
+
   date          DateTime
   startTime     String
   endTime       String
   expectedNumberOfStudents    Int
-  venue         String
   registrationLink    String?
-  status String @default("pending")
-
+  status        String    @default("pending")
 }
 
 
@@ -102,4 +106,12 @@ model GuestRoomRequest {
   status              String    @default("pending") 
 }
 
+
+// The physical locations for events
+model Venue {
+  id              String    @id @default(cuid())
+  name            String    @unique // e.g., "Basement seminar hall"
+  capacity        Int       // Strict limit for the room
+  events          Event[]   // Relation to the events booked here
+}
 

@@ -1,10 +1,9 @@
-import Calendar from "@/components/personal-components/Calander/Calander";
-import Image from "next/image";
+import PublicCalander from "@/components/publicComponents/Calander/PublicCalander";
 
 export default function Home() {
   return (
-    <div>
-      <Calendar/>
-    </div>
+    <main className="min-h-screen bg-background py-8 px-4">
+      <PublicCalander />
+    </main>
   );
 }

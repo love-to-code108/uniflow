@@ -1,9 +1,8 @@
 "use server"
 
 import { db } from "@/lib/db";
-import { withPermissions } from "@/actions/gatekeeper"; // Make sure this path matches where you saved gatekeeper.js
+import { withPermissions } from "@/actions/gatekeeper";
 
-// 1. The Core Logic
 const processEventRequest = async (userId, formData, flags = {}) => {
     try {
         const {
@@ -16,71 +15,85 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             registrationLink
         } = formData;
 
-        // --- FIX 1: THE TIME MACHINE BLOCKER (Upgraded for Same-Day) ---
+        // --- TIME MACHINE BLOCKER ---
         const now = new Date();
-
-        // Strip the time to compare just the pure dates
         const todayMidnight = new Date(now);
         todayMidnight.setHours(0, 0, 0, 0);
 
         const targetDateMidnight = new Date(eventDate);
         targetDateMidnight.setHours(0, 0, 0, 0);
 
-        // Check 1: Is the calendar day entirely in the past?
         if (targetDateMidnight < todayMidnight) {
-            return {
-                status: "ERROR",
-                message: "Cannot schedule an event in the past."
-            };
+            return { status: "ERROR", message: "Cannot schedule an event in the past." };
         }
 
-        // Check 2: If the event is TODAY, is the start time already passed?
         if (targetDateMidnight.getTime() === todayMidnight.getTime()) {
-            // Get current time in "HH:MM" 24-hour format (e.g., "23:29")
             const currentHour = now.getHours().toString().padStart(2, '0');
             const currentMinute = now.getMinutes().toString().padStart(2, '0');
             const currentTime = `${currentHour}:${currentMinute}`;
 
-            // Compare the strings directly (e.g., "10:00" <= "23:29")
             if (startTime <= currentTime) {
-                return {
-                    status: "ERROR",
-                    message: "Cannot schedule an event for a time that has already passed today."
-                };
+                return { status: "ERROR", message: "Cannot schedule an event for a time that has already passed today." };
             }
         }
-        // --------------------------------------------------------------
 
-        // Fetch the user to check for the priority override
+        // --- USER PERMISSIONS ---
         const user = await db.user.findUnique({
             where: { id: userId },
             select: { permissions: true }
         });
 
         const hasPriority = user?.permissions?.has_priority === true;
+        const isAdmin = user?.permissions?.can_approve_events === true;
 
-        // Determine the Ideal Venue based on capacity
-        let targetVenue = "Auditorium 1";
-        if (expectedStudents > 200 && expectedStudents <= 300) targetVenue = "Auditorium 3";
-        if (expectedStudents > 100 && expectedStudents <= 200) targetVenue = "Auditorium 2";
+        // --- FULLY DYNAMIC VENUE ASSIGNMENT ---
+        // 1. Fetch all venues sorted by capacity (Smallest to Largest)
+        const allVenues = await db.venue.findMany({
+            orderBy: { capacity: 'asc' }
+        });
 
-        // Handle 300+ Capacity Edge Case
-        if (expectedStudents > 300) {
-            targetVenue = "Auditorium 3";
+        if (allVenues.length === 0) {
+            return { status: "ERROR", message: "No venues found in the database. Please add venues via the Admin panel." };
+        }
 
-            if (!hasPriority && !flags.forceCapacity) {
-                return {
-                    status: "CAPACITY_WARNING",
-                    message: "The college cannot comfortably accommodate over 300 students. Proceed anyway?"
-                };
+        // Separate the special "Others" fallback from the standard rooms
+        const others = allVenues.find(v => v.name.toLowerCase() === "others");
+        const standardVenues = allVenues.filter(v => v.name.toLowerCase() !== "others");
+
+        // 2. Mathematical Best Fit Logic
+        // Find the smallest room that can fit the expected students
+        let targetVenue = null;
+        for (const venue of standardVenues) {
+            if (expectedStudents <= venue.capacity) {
+                targetVenue = venue;
+                break; // Stop at the first room that fits!
             }
         }
 
-        if (flags.acceptedVenue) {
-            targetVenue = flags.acceptedVenue;
+        // 3. Strict Capacity Check
+        if (!targetVenue) {
+            // If targetVenue is still null, expectedStudents is larger than our biggest standard room
+            const maxCapacity = standardVenues.length > 0 ? standardVenues[standardVenues.length - 1].capacity : 0;
+
+            if (!isAdmin) {
+                return {
+                    status: "ERROR",
+                    message: `Capacity exceeds maximum allowed (${maxCapacity}). Only admins can book for larger events.`
+                };
+            }
+            
+            if (!others) {
+                 return { status: "ERROR", message: "Admin override failed: 'Others' venue is missing from the database." };
+            }
+            targetVenue = others;
         }
 
-        // Database Creation Helper
+        // Override if they accepted an alternative in the fallback loop
+        if (flags.acceptedVenueId) {
+            targetVenue = allVenues.find(v => v.id === flags.acceptedVenueId);
+        }
+
+        // --- DB CREATION HELPER ---
         const createPendingEvent = async (venueToBook) => {
             await db.event.create({
                 data: {
@@ -90,7 +103,7 @@ const processEventRequest = async (userId, formData, flags = {}) => {
                     startTime: startTime,
                     endTime: endTime,
                     expectedNumberOfStudents: expectedStudents,
-                    venue: venueToBook,
+                    venueId: venueToBook.id, 
                     registrationLink: registrationLink || null,
                     status: "pending",
                     userId: userId
@@ -98,19 +111,20 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             });
         };
 
-        // Priority Override Bypass
-        if (hasPriority) {
+        // Priority Bypass
+        if (hasPriority && targetVenue.name.toLowerCase() !== "others") {
             await createPendingEvent(targetVenue);
-            return { status: "SUCCESS", venue: targetVenue };
+            return { status: "SUCCESS", venue: targetVenue.name };
         }
 
-        // --- FIX 2: THE PHANTOM BOOKING BLOCKER ---
+        // Conflict Checker
         const checkAvailability = async (venueToCheck) => {
+            if (venueToCheck.name.toLowerCase() === "others") return true; 
+            
             const overlappingEvents = await db.event.findMany({
                 where: {
                     date: eventDate,
-                    venue: venueToCheck,
-                    // Now blocks if the slot is taken by either an approved OR a pending event
+                    venueId: venueToCheck.id, 
                     status: { in: ["pending", "approved"] },
                     AND: [
                         { startTime: { lt: endTime } },
@@ -120,37 +134,35 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             });
             return overlappingEvents.length === 0;
         };
-        // ------------------------------------------
 
-        // Check the Target Venue
         const isTargetFree = await checkAvailability(targetVenue);
 
         if (isTargetFree) {
             await createPendingEvent(targetVenue);
-            return { status: "SUCCESS", venue: targetVenue };
+            return { status: "SUCCESS", venue: targetVenue.name };
         }
 
-        // The Fallback Loop 
-        if (!flags.acceptedVenue) {
-            const fallbacks = [];
-            if (targetVenue === "Auditorium 1") fallbacks.push("Auditorium 2", "Auditorium 3");
-            if (targetVenue === "Auditorium 2") fallbacks.push("Auditorium 3");
+        // --- DYNAMIC FALLBACK LOOP ---
+        // If the target is full, automatically check all rooms LARGER than the target
+        if (!flags.acceptedVenueId && targetVenue.name.toLowerCase() !== "others") {
+            const targetIndex = standardVenues.findIndex(v => v.id === targetVenue.id);
+            const fallbacks = standardVenues.slice(targetIndex + 1); // Slice gives us everything larger
 
             for (const fallbackVenue of fallbacks) {
                 const isFallbackFree = await checkAvailability(fallbackVenue);
                 if (isFallbackFree) {
                     return {
                         status: "ALTERNATIVE_AVAILABLE",
-                        suggestedVenue: fallbackVenue
+                        suggestedVenue: fallbackVenue.name,
+                        suggestedVenueId: fallbackVenue.id,
                     };
                 }
             }
         }
 
-        // Ultimate Failure State
         return {
             status: "NO_VENUES",
-            message: "All auditoriums are booked for this time slot."
+            message: "All suitable seminar halls are completely booked for this time slot."
         };
 
     } catch (error) {
@@ -159,29 +171,15 @@ const processEventRequest = async (userId, formData, flags = {}) => {
     }
 };
 
-// --------------------------------------------------------
-// THE MAGIC GATEKEEPER
-// We wrap our function and demand the "can_request_event" permission.
-// This is what gets exported and called by your frontend.
-// --------------------------------------------------------
-// --------------------------------------------------------
-// THE MAGIC GATEKEEPER (Next.js Strict Mode Fix)
-// --------------------------------------------------------
 export async function submitEventRequest(formData, flags = {}) {
     try {
-        // We await the wrapper to get the inner function
         const secureAction = await withPermissions("can_request_event", processEventRequest);
-
-        // Then we call that inner function with the data
         return await secureAction(formData, flags);
     } catch (error) {
         console.error("Action Wrapper Error:", error);
         return { status: "ERROR", message: "Failed to process request." };
     }
 }
-
-
-
 
 export const updateEventRequest = async (id, payload) => {
     try {
@@ -193,10 +191,9 @@ export const updateEventRequest = async (id, payload) => {
                 date: payload.eventDate,
                 startTime: payload.startTime,
                 endTime: payload.endTime,
-                // --- THE FIX IS HERE ---
-                // Mapping the form's 'expectedStudents' to the database's 'expectedNumberOfStudents'
                 expectedNumberOfStudents: parseInt(payload.expectedStudents), 
-                registrationLink: payload.registrationLink
+                registrationLink: payload.registrationLink,
+                venueId: payload.venueId 
             }
         });
         return { status: "SUCCESS" };

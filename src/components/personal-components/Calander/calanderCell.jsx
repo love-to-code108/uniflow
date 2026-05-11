@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { submitEventRequest } from "@/actions/events";
-
+import { calanderStore } from "@/store/globalStates"; // <-- Add calanderStore here
 // UI Components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +113,10 @@ const formSchema = z.object({
 
 export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
 
+
+    const incrementRefresh = calanderStore((state) => state.incrementRefresh);
+
+
     const form = useForm({
         resolver: zodResolver(formSchema),
         // 2. Dynamically set default values based on Edit Mode or Create Mode
@@ -151,17 +155,13 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
 
 
     const onSubmit = async (data) => {
-        // --- THE TIMEZONE FIX ---
-        // Grab the date they picked, and force the time to 12:00 PM (Noon) local time
         const safeDate = new Date(data.eventDate.getFullYear(), data.eventDate.getMonth(), data.eventDate.getDate(), 12, 0, 0);
         const payload = { ...data, eventDate: safeDate };
 
         let response;
         if (initialData && initialData.id) {
-            // Edit Mode
             response = await updateEventRequest(initialData.id, payload);
         } else {
-            // Create Mode
             response = await submitEventRequest(payload);
         }
 
@@ -170,8 +170,10 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
             return;
         }
 
+        // 2. Add incrementRefresh() to all the SUCCESS blocks
         if (response.status === "SUCCESS") {
             toast.success(initialData ? "Event updated successfully!" : `Event requested in ${response.venue || "venue"}!`);
+            incrementRefresh(); // <--- ADD THIS
             onSuccess(false);
         }
         else if (response.status === "CAPACITY_WARNING") {
@@ -182,6 +184,7 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
                         const forcedRes = await submitEventRequest(data, { forceCapacity: true });
                         if (forcedRes.status === "SUCCESS") {
                             toast.success("Event request submitted despite capacity limits.");
+                            incrementRefresh(); // <--- ADD THIS
                             onSuccess(false);
                         }
                     }
@@ -189,15 +192,21 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
             });
         }
         else if (response.status === "ALTERNATIVE_AVAILABLE") {
-            toast(`Target auditorium is full. Request ${response.suggestedVenue} instead?`, {
-                action: {
-                    label: `Book ${response.suggestedVenue}`,
-                    onClick: async () => {
-                        const altRes = await submitEventRequest(data, { acceptedVenue: response.suggestedVenue });
-                        if (altRes.status === "SUCCESS") {
-                            toast.success(`Event requested in ${response.suggestedVenue}!`);
-                            onSuccess(false);
-                        }
+            // Trigger the Dialog instead of a toast
+            setActionDialog({
+                isOpen: true,
+                title: "Venue Unavailable",
+                description: `The requested hall is full, but the ${response.suggestedVenue} is available. Would you like to book that instead?`,
+                actionLabel: `Book ${response.suggestedVenue}`,
+                onConfirm: async () => {
+                    // --- THE FIX: Use acceptedVenueId instead of acceptedVenue ---
+                    const altRes = await submitEventRequest(data, { acceptedVenueId: response.suggestedVenueId });
+                    
+                    if (altRes.status === "SUCCESS") {
+                        toast.success(`Event successfully requested in ${response.suggestedVenue}!`);
+                        incrementRefresh();
+                        onSuccess(false);
+                        setActionDialog({ ...actionDialog, isOpen: false });
                     }
                 }
             });
@@ -205,9 +214,6 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
         else if (response.status === "NO_VENUES") {
             toast.error(response.message);
         }
-
-
-
     }
 
 
@@ -439,6 +445,11 @@ const vehicleFormSchema = z.object({
 
 // --- VEHICLE FORM COMPONENT ---
 export const CreateVehicleForm = ({ preFilledDate, onSuccess, initialData }) => {
+
+    const incrementRefresh = calanderStore((state) => state.incrementRefresh);
+
+
+
     const form = useForm({
         resolver: zodResolver(vehicleFormSchema),
         defaultValues: initialData ? {
@@ -486,6 +497,7 @@ export const CreateVehicleForm = ({ preFilledDate, onSuccess, initialData }) => 
 
         if (response.status === "SUCCESS") {
             toast.success(initialData ? "Vehicle request updated!" : "Vehicle request submitted successfully!");
+            incrementRefresh();
             if (onSuccess) onSuccess(false);
         }
     };
@@ -691,6 +703,11 @@ const guestFormSchema = z.object({
 
 // --- GUEST FORM COMPONENT ---
 export const CreateGuestForm = ({ preFilledDate, onSuccess, initialData }) => {
+
+    const incrementRefresh = calanderStore((state) => state.incrementRefresh);
+
+
+
     const form = useForm({
         resolver: zodResolver(guestFormSchema),
         defaultValues: initialData ? {
@@ -728,6 +745,7 @@ export const CreateGuestForm = ({ preFilledDate, onSuccess, initialData }) => {
 
         if (response.status === "SUCCESS") {
             toast.success(initialData ? "Guest room request updated!" : "Guest room request submitted successfully!");
+            incrementRefresh();
             if (onSuccess) onSuccess(false);
         }
     };
