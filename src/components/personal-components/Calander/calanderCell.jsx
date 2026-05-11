@@ -75,7 +75,7 @@ import { submitGuestRequest } from "@/actions/guests";
 
 import { updateEventRequest } from "@/actions/events";
 import { submitVehicleRequest, updateVehicleRequest, getAllVehicles } from "@/actions/vehicles";
-import { updateGuestRequest } from "@/actions/guests";
+import { updateGuestRequest , getAllGuestRooms } from "@/actions/guests";
 
 
 
@@ -773,6 +773,19 @@ const guestFormSchema = z.object({
 export const CreateGuestForm = ({ preFilledDate, onSuccess, initialData }) => {
 
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
+    const [roomsList, setRoomsList] = React.useState([]);
+
+
+    React.useEffect(() => {
+        const fetchRooms = async () => {
+            const res = await getAllGuestRooms();
+            if (res.status === "SUCCESS") {
+                setRoomsList(res.data);
+            }
+        };
+        fetchRooms();
+    }, []);
+    // ----------------------------------
 
 
 
@@ -833,16 +846,21 @@ export const CreateGuestForm = ({ preFilledDate, onSuccess, initialData }) => {
                         <Field data-invalid={fieldState.invalid}>
                             <FieldLabel htmlFor="roomId">Select Room</FieldLabel>
 
-                            {/* FIX: Change defaultValue to value */}
+                            {/* DYNAMIC GUEST ROOM DROPDOWN */}
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger id="roomId" aria-invalid={fieldState.invalid}>
                                     <SelectValue placeholder="Choose a guest room" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="202A">Room 202A</SelectItem>
-                                    <SelectItem value="202B">Room 202B</SelectItem>
-                                    <SelectItem value="203A">Room 203A</SelectItem>
-                                    <SelectItem value="203B">Room 203B</SelectItem>
+                                    {roomsList.length > 0 ? (
+                                        roomsList.map((room) => (
+                                            <SelectItem key={room.id} value={room.id}>
+                                                {room.name}
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value="none" disabled>No rooms available</SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}

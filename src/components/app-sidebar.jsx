@@ -38,6 +38,7 @@ import { useRouter } from "next/navigation";
 import { logoutUser } from "@/lib/userAuth";
 import CreateNewVenueForm from "./personal-components/forms/CreateNewVenueForm";
 import CreateNewVehicleForm from "./personal-components/forms/CreateNewVehicleForm";
+import CreateNewGuestRoomForm from "./personal-components/forms/CreateNewGuestRoomForm";
 
 export function AppSidebar() {
     // --- AUTH & PERMISSIONS ---
@@ -190,14 +191,30 @@ export function AppSidebar() {
                                 </SidebarMenuItem>
                             )}
 
-                            <SidebarMenuItem>
-                                <SidebarMenuButton className="hover:cursor-pointer text-muted-foreground">
-                                    <div className="w-full flex items-center gap-3">
-                                        <BedDouble size={16} />
-                                        <p>Add Guest Room</p>
-                                    </div>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
+                            {/* --- CONDITIONAL: ADD GUEST ROOM (System Managers Only) --- */}
+                            {permissions.can_manage_system && (
+                                <SidebarMenuItem>
+                                    <Dialog>
+                                        <DialogTrigger asChild className={"w-full h-full"}>
+                                            <SidebarMenuButton className={"hover:cursor-pointer"}>
+                                                <div className="w-full flex items-center gap-3">
+                                                    <BedDouble size={16} />
+                                                    <p>Add Guest Room</p>
+                                                </div>
+                                            </SidebarMenuButton>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Add a New Guest Room</DialogTitle>
+                                                <DialogDescription>
+                                                    Register a new lodging facility to the system for guest bookings.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <CreateNewGuestRoomForm />
+                                        </DialogContent>
+                                    </Dialog>
+                                </SidebarMenuItem>
+                            )}
 
 
 

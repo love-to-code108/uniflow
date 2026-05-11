@@ -47,6 +47,11 @@ import {
 
 import { getBadgeDetails, updateBadgeDetails, resolveBadgeStatus, getAllVenues } from "@/actions/calendar";
 import { toast } from "sonner";
+import { getAllGuestRooms } from "@/actions/guests";
+
+
+
+
 
 const truncateText = (text, maxLength) => {
     if (!text) return "";
@@ -84,6 +89,7 @@ const EventCell = ({ item, isPast }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [venuesList, setVenuesList] = useState([]);
     const [vehiclesList, setVehiclesList] = useState([]);
+    const [roomsList, setRoomsList] = useState([]);
     const [editForm, setEditForm] = useState({});
 
     const handleEventClick = (e) => {
@@ -119,6 +125,17 @@ const EventCell = ({ item, isPast }) => {
                 }
                 // ---------------------------------------------------
 
+
+
+                // --- NEW: Fetch dynamic guest rooms if it is a guest request ---
+                if (item.type === "guest") {
+                    const roomRes = await getAllGuestRooms();
+                    if (roomRes.status === "SUCCESS") {
+                        setRoomsList(roomRes.data);
+                    }
+                }
+                // ---------------------------------------------------
+
                 setIsLoading(false);
             };
             fetchDetails();
@@ -149,6 +166,7 @@ const EventCell = ({ item, isPast }) => {
             // --- NEW: Map the relational ID ---
             venueId: deepDetails?.venue?.id || "",
             vehicleId: deepDetails?.vehicle?.id || "",
+            roomId: deepDetails?.room?.id || "",
         });
         setIsEditing(true);
     };
@@ -482,15 +500,29 @@ const EventCell = ({ item, isPast }) => {
                                 )}
 
                                 {/* GUEST PURPOSE */}
+                                {/* DYNAMIC GUEST ROOM SELECTION */}
                                 {item.type === "guest" && (
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <span className="font-semibold text-right text-sm text-muted-foreground">Purpose:</span>
-                                        {isEditing ? (
+                                    <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
+                                        <span className="font-semibold text-right text-sm text-muted-foreground">Room:</span>
+                                        {isEditing && canApprove ? (
                                             <div className="col-span-3">
-                                                <Input className="h-8 text-sm" value={editForm.purpose} onChange={(e) => setEditForm({ ...editForm, purpose: e.target.value })} />
+                                                <Select value={editForm.roomId} onValueChange={(val) => setEditForm({ ...editForm, roomId: val })}>
+                                                    <SelectTrigger className="h-8 text-sm w-full">
+                                                        <SelectValue placeholder="Select Room">
+                                                            {roomsList.find((r) => r.id === editForm.roomId)?.name || "Select Room"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {roomsList.map((r) => (
+                                                            <SelectItem key={r.id} value={r.id}>
+                                                                {r.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                         ) : (
-                                            <span className="col-span-3 font-medium text-sm">{deepDetails.purpose}</span>
+                                            <span className="col-span-3 font-medium text-sm">{deepDetails?.room?.name || "TBD"}</span>
                                         )}
                                     </div>
                                 )}
