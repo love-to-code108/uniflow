@@ -360,3 +360,53 @@ export async function resolveBadgeStatus(id, type, newStatus, expectedStatus) {
         return { status: "ERROR", message: "Failed to authenticate resolution request." };
     }
 }
+
+
+
+export const getPublicEvents = async (year, month) => {
+    try {
+        const startOfMonth = new Date(year, month - 1, 1);
+        const endOfMonth = new Date(year, month, 0);
+
+        const events = await db.event.findMany({
+            where: {
+                date: { gte: startOfMonth, lte: endOfMonth },
+                status: "approved" // STRICTLY ONLY APPROVED EVENTS
+            },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                date: true,
+                startTime: true,
+                endTime: true,
+                venue: true,
+                registrationLink: true,
+            }
+        });
+
+        const groupedData = {};
+        events.forEach(event => {
+            const dateKey = event.date.toISOString().split('T')[0];
+            if (!groupedData[dateKey]) groupedData[dateKey] = [];
+            
+            groupedData[dateKey].push({
+                id: event.id,
+                title: event.name,
+                type: "event",
+                startTime: event.startTime,
+                endTime: event.endTime,
+                status: "approved",
+                description: event.description,
+                venue: event.venue,
+                registrationLink: event.registrationLink,
+                date: event.date
+            });
+        });
+
+        return { status: "SUCCESS", data: groupedData };
+    } catch (error) {
+        console.error("Public fetch error:", error);
+        return { status: "ERROR", message: "Failed to fetch public events." };
+    }
+}

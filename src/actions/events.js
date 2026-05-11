@@ -196,7 +196,8 @@ export const updateEventRequest = async (id, payload) => {
                 // --- THE FIX IS HERE ---
                 // Mapping the form's 'expectedStudents' to the database's 'expectedNumberOfStudents'
                 expectedNumberOfStudents: parseInt(payload.expectedStudents), 
-                registrationLink: payload.registrationLink
+                registrationLink: payload.registrationLink,
+                venue: payload.venue
             }
         });
         return { status: "SUCCESS" };

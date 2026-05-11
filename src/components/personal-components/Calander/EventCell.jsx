@@ -120,6 +120,7 @@ const EventCell = ({ item, isPast }) => {
             description: deepDetails?.description || "",
             destination: deepDetails?.destination || "",
             purpose: deepDetails?.purpose || "",
+            venue: deepDetails?.venue || item.venue || "Auditorium 1",
         });
         setIsEditing(true);
     };
@@ -142,15 +143,15 @@ const EventCell = ({ item, isPast }) => {
     const handleApprove = async () => {
         setIsLoading(true);
         const response = await resolveBadgeStatus(item.id, item.type, "approved", item.status);
-        
+
         if (response.status === "SUCCESS") {
             toast.success(`${item.type} request approved!`);
             setDeepDetails(response.data);
-            item.status = "approved"; 
-            incrementRefresh(); 
+            item.status = "approved";
+            incrementRefresh();
         } else {
             toast.error(response.message);
-            incrementRefresh(); 
+            incrementRefresh();
         }
         setIsLoading(false);
     };
@@ -158,15 +159,15 @@ const EventCell = ({ item, isPast }) => {
     const handleDecline = async () => {
         setIsLoading(true);
         const response = await resolveBadgeStatus(item.id, item.type, "declined", item.status);
-        
+
         if (response.status === "SUCCESS") {
             toast.success(`${item.type} request declined and deleted.`);
-            incrementRefresh(); 
-            setIsAlertOpen(false); 
-            setIsDialogOpen(false); 
+            incrementRefresh();
+            setIsAlertOpen(false);
+            setIsDialogOpen(false);
         } else {
             toast.error(response.message);
-            incrementRefresh(); 
+            incrementRefresh();
             setIsAlertOpen(false);
         }
         setIsLoading(false);
@@ -327,6 +328,30 @@ const EventCell = ({ item, isPast }) => {
                                     )}
                                 </div>
 
+
+                                {/* VENUE (Only for events) */}
+                                {item.type === "event" && (
+                                    <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
+                                        <span className="font-semibold text-right text-sm text-muted-foreground">Venue:</span>
+                                        {isEditing && canApprove ? ( // Only admins/approvers can change venues
+                                            <div className="col-span-3">
+                                                <Select value={editForm.venue} onValueChange={(val) => setEditForm({ ...editForm, venue: val })}>
+                                                    <SelectTrigger className="h-8 text-sm w-full">
+                                                        <SelectValue placeholder="Select Venue" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="Auditorium 1">Auditorium 1</SelectItem>
+                                                        <SelectItem value="Auditorium 2">Auditorium 2</SelectItem>
+                                                        <SelectItem value="Auditorium 3">Auditorium 3</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        ) : (
+                                            <span className="col-span-3 font-medium text-sm">{deepDetails?.venue || "TBD"}</span>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* EDITABLE TIMES */}
                                 {item.type !== "guest" && (
                                     <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
@@ -442,7 +467,7 @@ const EventCell = ({ item, isPast }) => {
                                                             <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
                                                             <AlertDialogAction
                                                                 onClick={(e) => {
-                                                                    e.preventDefault(); 
+                                                                    e.preventDefault();
                                                                     handleDecline();
                                                                 }}
                                                                 disabled={isLoading}
