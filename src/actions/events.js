@@ -117,13 +117,20 @@ const processEventRequest = async (userId, formData, flags = {}) => {
             return { status: "SUCCESS", venue: targetVenue.name };
         }
 
-        // Conflict Checker
+        // Conflict Checker Upgrade
         const checkAvailability = async (venueToCheck) => {
             if (venueToCheck.name.toLowerCase() === "others") return true; 
             
+            // THE FIX: Create a window for the entire day to catch ALL timezone drifts
+            const startOfDay = new Date(eventDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            
+            const endOfDay = new Date(eventDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
             const overlappingEvents = await db.event.findMany({
                 where: {
-                    date: eventDate,
+                    date: { gte: startOfDay, lte: endOfDay }, // Safely checks the whole day
                     venueId: venueToCheck.id, 
                     status: { in: ["pending", "approved"] },
                     AND: [
