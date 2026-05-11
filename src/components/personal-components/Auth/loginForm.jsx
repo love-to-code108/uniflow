@@ -180,6 +180,7 @@ const LoginForm = ({ className }) => {
                                             aria-invalid={fieldState.invalid}
                                             placeholder="password"
                                             autoComplete="off"
+                                            className="mb-[10px]"
                                         />
                                         {fieldState.invalid && (
                                             <FieldError errors={[fieldState.error]} />
@@ -202,15 +203,15 @@ const LoginForm = ({ className }) => {
             
 
             <CardFooter>
-                <Field orientation="horizontal">
+                <Field orientation="horizontal" className={"w-full"}>
 
-                    <Button type="button" variant="outline"
+                    {/* <Button type="button" variant="outline"
                         onClick={() => form.reset()}
-                    >Reset</Button>
+                    >Reset</Button> */}
 
 
 
-                    <Button type="submit" form="ContactUsForm">Submit</Button>
+                    <Button className={"w-full"} type="submit" form="ContactUsForm">Submit</Button>
                 </Field>
             </CardFooter>
 

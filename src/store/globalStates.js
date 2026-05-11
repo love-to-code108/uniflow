@@ -42,3 +42,10 @@ export const calanderStore = create((set) => ({
         };
     }),
 }))
+
+
+
+export const useAppStore = create((set) => ({
+    currentView: "calendar", // "calendar" or "action-center"
+    setCurrentView: (view) => set({ currentView: view }),
+}));
