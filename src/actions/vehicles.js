@@ -1,25 +1,70 @@
-"use server";
+"use server"
 
 import { db } from "@/lib/db";
-import { withPermissions } from "@/actions/gatekeeper"; 
+import { withPermissions, withAuthOnly } from "@/actions/gatekeeper";
 
-// 1. The Core Logic
-const processVehicleRequest = async (userId, formData, flags = {}) => {
+export async function getAllVehicles() {
     try {
-        const {
-            vehicleId,
-            eventDate, // This is the safe 12:00 PM date we set on the frontend
-            startTime,
-            endTime,
-            destination,
-            purpose
-        } = formData;
+        const vehicles = await db.vehicle.findMany({
+            orderBy: { name: 'asc' }
+        });
+        return { status: "SUCCESS", data: vehicles };
+    } catch (error) {
+        console.error("Failed to fetch vehicles:", error);
+        return { status: "ERROR", message: "Failed to load vehicles." };
+    }
+}
 
-        // --- THE TIME MACHINE BLOCKER ---
+// --- CREATE NEW VEHICLE (ADMIN ONLY) ---
+const processCreateVehicle = async (userId, vehicleData) => {
+    try {
+        const user = await db.user.findUnique({
+            where: { id: userId },
+            select: { permissions: true }
+        });
+
+        if (user?.permissions?.can_manage_system !== true) {
+            return { status: "ERROR", message: "Unauthorized: System management privileges required." };
+        }
+
+        const existingVehicle = await db.vehicle.findUnique({
+            where: { name: vehicleData.name }
+        });
+
+        if (existingVehicle) {
+            return { status: "ERROR", message: "A vehicle with this name already exists." };
+        }
+
+        await db.vehicle.create({
+            data: { name: vehicleData.name }
+        });
+
+        return { status: "SUCCESS", message: `Vehicle '${vehicleData.name}' added successfully!` };
+    } catch (error) {
+        console.error("Error creating vehicle:", error);
+        return { status: "ERROR", message: "Failed to add the new vehicle." };
+    }
+};
+
+export async function createNewVehicle(vehicleData) {
+    try {
+        const secureAction = await withAuthOnly(processCreateVehicle);
+        return await secureAction(vehicleData);
+    } catch (error) {
+        return { status: "ERROR", message: "Failed to process creation request." };
+    }
+}
+
+// --- SECURE VEHICLE REQUEST & CONFLICT CHECKER ---
+const processVehicleRequest = async (userId, formData) => {
+    try {
+        const { vehicleId, eventDate, startTime, endTime, destination, purpose } = formData;
+
+        // 1. Time Machine Blocker
         const now = new Date();
         const todayMidnight = new Date(now);
         todayMidnight.setHours(0, 0, 0, 0);
-        
+
         const targetDateMidnight = new Date(eventDate);
         targetDateMidnight.setHours(0, 0, 0, 0);
 
@@ -31,70 +76,55 @@ const processVehicleRequest = async (userId, formData, flags = {}) => {
             const currentHour = now.getHours().toString().padStart(2, '0');
             const currentMinute = now.getMinutes().toString().padStart(2, '0');
             const currentTime = `${currentHour}:${currentMinute}`;
-
             if (startTime <= currentTime) {
-                return { status: "ERROR", message: "Cannot request a vehicle for a time that has already passed today." };
+                return { status: "ERROR", message: "Cannot request a vehicle for a past time today." };
             }
         }
-        // --------------------------------
 
-        // Fetch the user to check for the priority override
+        // 2. Fetch User Permissions & Priority
         const user = await db.user.findUnique({
             where: { id: userId },
             select: { permissions: true }
         });
-
         const hasPriority = user?.permissions?.has_priority === true;
 
-        // Database Creation Helper
-        const createPendingVehicleRequest = async () => {
-            await db.vehicleRequest.create({
-                data: {
-                    userId: userId,
-                    vehicleId: vehicleId,
-                    date: eventDate,
-                    startTime: startTime,
-                    endTime: endTime,
-                    destination: destination,
-                    purpose: purpose,
-                    status: "pending" 
-                }
-            });
-        };
+        // 3. Conflict Checker (Mathematically stops double-booking!)
+        const startOfDay = new Date(eventDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(eventDate);
+        endOfDay.setHours(23, 59, 59, 999);
 
-        // Priority Override Bypass
-        // If they have priority, they can book it even if someone else is pending. 
-        // The Admin will sort it out later.
-        if (hasPriority) {
-            await createPendingVehicleRequest();
-            return { status: "SUCCESS" };
-        }
-
-        // --- THE PHANTOM BOOKING BLOCKER ---
-        // Check if THIS SPECIFIC vehicle is already booked for this time
         const overlappingRequests = await db.vehicleRequest.findMany({
             where: {
+                date: { gte: startOfDay, lte: endOfDay },
                 vehicleId: vehicleId,
-                date: eventDate,
-                status: { in: ["pending", "approved"] }, 
+                status: { in: ["pending", "approved"] },
                 AND: [
-                    { startTime: { lt: endTime } }, 
-                    { endTime: { gt: startTime } }  
+                    { startTime: { lt: endTime } },
+                    { endTime: { gt: startTime } }
                 ]
             }
         });
 
-        if (overlappingRequests.length > 0) {
-            return { 
-                status: "ERROR", 
-                message: "This vehicle is already requested or booked for this time slot. Please select a different vehicle." 
-            };
+        if (overlappingRequests.length > 0 && !hasPriority) {
+            return { status: "ERROR", message: "This vehicle is already booked for this time slot. Please select another time or vehicle." };
         }
-        // -----------------------------------
 
-        // If it's free, create the request
-        await createPendingVehicleRequest();
-        return { status: "SUCCESS" };
+        // 4. Create the Request
+        await db.vehicleRequest.create({
+            data: {
+                destination,
+                purpose,
+                date: eventDate,
+                startTime,
+                endTime,
+                vehicleId,
+                userId,
+                status: "pending"
+            }
+        });
+
+        return { status: "SUCCESS", message: "Vehicle request submitted successfully!" };
 
     } catch (error) {
         console.error("Error creating vehicle request:", error);
@@ -102,42 +132,33 @@ const processVehicleRequest = async (userId, formData, flags = {}) => {
     }
 };
 
-// --------------------------------------------------------
-// THE MAGIC GATEKEEPER
-// We wrap our function and demand the "can_request_for_vehicles" permission.
-// --------------------------------------------------------
-export async function submitVehicleRequest(formData, flags = {}) {
+export async function submitVehicleRequest(formData) {
     try {
-        // We await the wrapper to get the inner function using the exact DB key
         const secureAction = await withPermissions("can_request_for_vehicles", processVehicleRequest);
-        
-        // Then we call that inner function with the data
-        return await secureAction(formData, flags);
+        return await secureAction(formData);
     } catch (error) {
         console.error("Action Wrapper Error:", error);
-        return { status: "ERROR", message: "Failed to process vehicle request." };
+        return { status: "ERROR", message: "Failed to process request." };
     }
 }
 
-
-
-
+// --- UPDATE VEHICLE REQUEST ---
 export const updateVehicleRequest = async (id, payload) => {
     try {
         await db.vehicleRequest.update({
             where: { id: id },
             data: {
-                vehicleId: payload.vehicleId,
+                vehicleId: payload.vehicleId, // Ensure DB relation updates
+                destination: payload.destination,
+                purpose: payload.purpose,
                 date: payload.eventDate,
                 startTime: payload.startTime,
                 endTime: payload.endTime,
-                destination: payload.destination,
-                purpose: payload.purpose
             }
         });
         return { status: "SUCCESS" };
     } catch (error) {
-        console.error("Failed to update vehicle:", error);
+        console.error("Failed to update vehicle request:", error);
         return { status: "ERROR", message: "Failed to update vehicle request." };
     }
 };

@@ -29,25 +29,33 @@ export async function getCalendarData(year, month) {
         const [events, vehicles, guests] = await Promise.all([
             db.event.findMany({
                 where: { date: { gte: gridStartDate, lte: gridEndDate } },
-                select: { id: true, name: true, date: true, startTime: true, endTime: true, status: true }
+                // --- THE FIX: Include the user's permissions so the grid knows if they are priority ---
+                select: { 
+                    id: true, name: true, date: true, startTime: true, endTime: true, status: true,
+                    user: { select: { permissions: true } }
+                }
             }),
             db.vehicleRequest.findMany({
                 where: { date: { gte: gridStartDate, lte: gridEndDate } },
-                include: { vehicle: true } 
+                include: { 
+                    vehicle: true,
+                    user: { select: { permissions: true } }
+                } 
             }),
             db.guestRoomRequest.findMany({
-                // Guests might check in last month and check out this month, so we check for overlap
                 where: {
                     checkInDate: { lte: gridEndDate },
                     checkOutDate: { gte: gridStartDate }
                 },
-                include: { room: true } 
+                include: { 
+                    room: true,
+                    user: { select: { permissions: true } }
+                } 
             })
         ]);
 
         const groupedData = {};
 
-        // Helper to format date keys safely for local time zone
         const createDateKey = (dateObject) => {
             const d = new Date(dateObject);
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -63,7 +71,8 @@ export async function getCalendarData(year, month) {
                 title: evt.name,
                 startTime: evt.startTime,
                 endTime: evt.endTime,
-                status: evt.status
+                status: evt.status,
+                isPriority: evt.user?.permissions?.has_priority === true // <-- NEW PRIORITY FLAG
             });
         });
 
@@ -77,18 +86,17 @@ export async function getCalendarData(year, month) {
                 title: veh.vehicle?.name || "Vehicle Request",
                 startTime: veh.startTime,
                 endTime: veh.endTime,
-                status: veh.status
+                status: veh.status,
+                isPriority: veh.user?.permissions?.has_priority === true // <-- NEW PRIORITY FLAG
             });
         });
 
-        // 3. Map Guests (Creates a badge for EVERY day of their stay)
+        // 3. Map Guests
         guests.forEach(guest => {
             const start = new Date(guest.checkInDate);
             const end = new Date(guest.checkOutDate);
             
-            // Loop through every day from Check-In to Check-Out
             for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                // Ensure we only create badges for days that are actually visible on THIS grid
                 if (d >= gridStartDate && d <= gridEndDate) {
                     const dateKey = createDateKey(d);
                     if (!groupedData[dateKey]) groupedData[dateKey] = [];
@@ -96,7 +104,8 @@ export async function getCalendarData(year, month) {
                         id: guest.id,
                         type: "guest",
                         title: `Guest: ${guest.room?.name || "Room"}`,
-                        status: guest.status
+                        status: guest.status,
+                        isPriority: guest.user?.permissions?.has_priority === true // <-- NEW PRIORITY FLAG
                     });
                 }
             }

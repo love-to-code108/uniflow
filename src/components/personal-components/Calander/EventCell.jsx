@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { useAuthStore, calanderStore } from "@/store/globalStates";
+import { getAllVehicles } from "@/actions/vehicles";
 
 // --- SHADCN UI IMPORTS ---
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,11 @@ import {
 
 import { getBadgeDetails, updateBadgeDetails, resolveBadgeStatus, getAllVenues } from "@/actions/calendar";
 import { toast } from "sonner";
+import { getAllGuestRooms } from "@/actions/guests";
+
+
+
+
 
 const truncateText = (text, maxLength) => {
     if (!text) return "";
@@ -75,12 +81,15 @@ const EventCell = ({ item, isPast }) => {
     const [deepDetails, setDeepDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isAlertOpen, setIsAlertOpen] = useState(false);
+    const [isApproveAlertOpen, setIsApproveAlertOpen] = useState(false);
 
     // --- Edit State & Auth Store ---
     const user = useAuthStore((state) => state.user);
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
     const [isEditing, setIsEditing] = useState(false);
     const [venuesList, setVenuesList] = useState([]);
+    const [vehiclesList, setVehiclesList] = useState([]);
+    const [roomsList, setRoomsList] = useState([]);
     const [editForm, setEditForm] = useState({});
 
     const handleEventClick = (e) => {
@@ -102,6 +111,27 @@ const EventCell = ({ item, isPast }) => {
                     const vRes = await getAllVenues();
                     if (vRes.status === "SUCCESS") {
                         setVenuesList(vRes.data);
+                    }
+                }
+                // ---------------------------------------------------
+
+
+                // --- NEW: Fetch dynamic vehicles if it is a vehicle request ---
+                if (item.type === "vehicle") {
+                    const vehRes = await getAllVehicles();
+                    if (vehRes.status === "SUCCESS") {
+                        setVehiclesList(vehRes.data);
+                    }
+                }
+                // ---------------------------------------------------
+
+
+
+                // --- NEW: Fetch dynamic guest rooms if it is a guest request ---
+                if (item.type === "guest") {
+                    const roomRes = await getAllGuestRooms();
+                    if (roomRes.status === "SUCCESS") {
+                        setRoomsList(roomRes.data);
                     }
                 }
                 // ---------------------------------------------------
@@ -135,6 +165,8 @@ const EventCell = ({ item, isPast }) => {
             purpose: deepDetails?.purpose || "",
             // --- NEW: Map the relational ID ---
             venueId: deepDetails?.venue?.id || "",
+            vehicleId: deepDetails?.vehicle?.id || "",
+            roomId: deepDetails?.room?.id || "",
         });
         setIsEditing(true);
     };
@@ -173,9 +205,11 @@ const EventCell = ({ item, isPast }) => {
             setDeepDetails(response.data);
             item.status = "approved";
             incrementRefresh();
+            setIsApproveAlertOpen(false); // <-- Close dialog on success
         } else {
             toast.error(response.message);
             incrementRefresh();
+            setIsApproveAlertOpen(false); // <-- Close dialog on error
         }
         setIsLoading(false);
     };
@@ -198,7 +232,11 @@ const EventCell = ({ item, isPast }) => {
     };
 
     const getColors = () => {
-        if (item.status === "pending") return "bg-[#B8B8B8] text-black";
+        if (item.status === "pending") {
+            // --- THE FIX: Priority Requests get the special orange color! ---
+            if (item.isPriority) return "bg-[#FF876B] text-black shadow-md border border-[#FF876B]/50";
+            return "bg-[#B8B8B8] text-black";
+        }
         if (item.type === "event") return isPast ? "bg-[#040071] text-white" : "bg-[#0802C0] text-white";
         if (item.type === "vehicle") return isPast ? "bg-[#1D7930] text-white" : "bg-[#25973D] text-white";
         if (item.type === "guest") return isPast ? "bg-[#693319] text-white" : "bg-[#974B25] text-white";
@@ -434,41 +472,57 @@ const EventCell = ({ item, isPast }) => {
                                 )}
 
                                 {/* VEHICLE DESTINATION & PURPOSE */}
+                                {/* DYNAMIC VEHICLE SELECTION */}
                                 {item.type === "vehicle" && (
-                                    <>
-                                        <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
-                                            <span className="font-semibold text-right text-sm text-muted-foreground">Dest:</span>
-                                            {isEditing ? (
-                                                <div className="col-span-3">
-                                                    <Input className="h-8 text-sm" value={editForm.destination} onChange={(e) => setEditForm({ ...editForm, destination: e.target.value })} />
-                                                </div>
-                                            ) : (
-                                                <span className="col-span-3 font-medium text-sm">{deepDetails.destination}</span>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <span className="font-semibold text-right text-sm text-muted-foreground">Purpose:</span>
-                                            {isEditing ? (
-                                                <div className="col-span-3">
-                                                    <Input className="h-8 text-sm" value={editForm.purpose} onChange={(e) => setEditForm({ ...editForm, purpose: e.target.value })} />
-                                                </div>
-                                            ) : (
-                                                <span className="col-span-3 font-medium text-sm">{deepDetails.purpose}</span>
-                                            )}
-                                        </div>
-                                    </>
+                                    <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
+                                        <span className="font-semibold text-right text-sm text-muted-foreground">Vehicle:</span>
+                                        {isEditing && canApprove ? (
+                                            <div className="col-span-3">
+                                                <Select value={editForm.vehicleId} onValueChange={(val) => setEditForm({ ...editForm, vehicleId: val })}>
+                                                    <SelectTrigger className="h-8 text-sm w-full">
+                                                        <SelectValue placeholder="Select Vehicle">
+                                                            {vehiclesList.find((v) => v.id === editForm.vehicleId)?.name || "Select Vehicle"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {vehiclesList.map((v) => (
+                                                            <SelectItem key={v.id} value={v.id}>
+                                                                {v.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        ) : (
+                                            <span className="col-span-3 font-medium text-sm">{deepDetails?.vehicle?.name || "TBD"}</span>
+                                        )}
+                                    </div>
                                 )}
 
                                 {/* GUEST PURPOSE */}
+                                {/* DYNAMIC GUEST ROOM SELECTION */}
                                 {item.type === "guest" && (
-                                    <div className="grid grid-cols-4 items-center gap-4">
-                                        <span className="font-semibold text-right text-sm text-muted-foreground">Purpose:</span>
-                                        {isEditing ? (
+                                    <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
+                                        <span className="font-semibold text-right text-sm text-muted-foreground">Room:</span>
+                                        {isEditing && canApprove ? (
                                             <div className="col-span-3">
-                                                <Input className="h-8 text-sm" value={editForm.purpose} onChange={(e) => setEditForm({ ...editForm, purpose: e.target.value })} />
+                                                <Select value={editForm.roomId} onValueChange={(val) => setEditForm({ ...editForm, roomId: val })}>
+                                                    <SelectTrigger className="h-8 text-sm w-full">
+                                                        <SelectValue placeholder="Select Room">
+                                                            {roomsList.find((r) => r.id === editForm.roomId)?.name || "Select Room"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {roomsList.map((r) => (
+                                                            <SelectItem key={r.id} value={r.id}>
+                                                                {r.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                         ) : (
-                                            <span className="col-span-3 font-medium text-sm">{deepDetails.purpose}</span>
+                                            <span className="col-span-3 font-medium text-sm">{deepDetails?.room?.name || "TBD"}</span>
                                         )}
                                     </div>
                                 )}
@@ -508,10 +562,36 @@ const EventCell = ({ item, isPast }) => {
                                                     </AlertDialogContent>
                                                 </AlertDialog>
 
+                                                {/* --- THE NEW APPROVE DIALOG --- */}
                                                 {item.status === "pending" && (
-                                                    <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={handleApprove}>
-                                                        Approve
-                                                    </Button>
+                                                    <AlertDialog open={isApproveAlertOpen} onOpenChange={setIsApproveAlertOpen}>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white">
+                                                                Approve
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Approve this {item.type}?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Are you sure you want to approve this request? This will lock in the schedule and secure the resource.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        handleApprove();
+                                                                    }}
+                                                                    disabled={isLoading}
+                                                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                                                >
+                                                                    {isLoading ? "Approving..." : "Yes, Approve"}
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
                                                 )}
                                             </div>
                                         )}

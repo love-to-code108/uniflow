@@ -70,12 +70,13 @@ import {
     ContextMenuTrigger,
     ContextMenuSeparator,
 } from "@/components/ui/context-menu";
-import { submitVehicleRequest } from "@/actions/vehicles";
+
 import { submitGuestRequest } from "@/actions/guests";
 
 import { updateEventRequest } from "@/actions/events";
-import { updateVehicleRequest } from "@/actions/vehicles";
-import { updateGuestRequest } from "@/actions/guests";
+import { submitVehicleRequest, updateVehicleRequest, getAllVehicles } from "@/actions/vehicles";
+import { updateGuestRequest , getAllGuestRooms } from "@/actions/guests";
+
 
 
 // --- 1. DATA & SCHEMA CONFIGURATION ---
@@ -496,6 +497,17 @@ const vehicleFormSchema = z.object({
 export const CreateVehicleForm = ({ preFilledDate, onSuccess, initialData }) => {
 
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
+    const [vehiclesList, setVehiclesList] = React.useState([]);
+
+    React.useEffect(() => {
+        const fetchVehicles = async () => {
+            const res = await getAllVehicles();
+            if (res.status === "SUCCESS") {
+                setVehiclesList(res.data);
+            }
+        };
+        fetchVehicles();
+    }, []);
 
 
 
@@ -565,14 +577,21 @@ export const CreateVehicleForm = ({ preFilledDate, onSuccess, initialData }) => 
                     render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
                             <FieldLabel htmlFor="vehicleId">Select Vehicle</FieldLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            {/* DYNAMIC VEHICLE DROPDOWN */}
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger id="vehicleId" aria-invalid={fieldState.invalid}>
                                     <SelectValue placeholder="Choose a vehicle" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Kia_Carens">Kia Carens</SelectItem>
-                                    <SelectItem value="Innova">Innova</SelectItem>
-                                    <SelectItem value="Ertiga">Ertiga</SelectItem>
+                                    {vehiclesList.length > 0 ? (
+                                        vehiclesList.map((v) => (
+                                            <SelectItem key={v.id} value={v.id}>
+                                                {v.name}
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value="none" disabled>No vehicles available</SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
@@ -754,6 +773,19 @@ const guestFormSchema = z.object({
 export const CreateGuestForm = ({ preFilledDate, onSuccess, initialData }) => {
 
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
+    const [roomsList, setRoomsList] = React.useState([]);
+
+
+    React.useEffect(() => {
+        const fetchRooms = async () => {
+            const res = await getAllGuestRooms();
+            if (res.status === "SUCCESS") {
+                setRoomsList(res.data);
+            }
+        };
+        fetchRooms();
+    }, []);
+    // ----------------------------------
 
 
 
@@ -814,16 +846,21 @@ export const CreateGuestForm = ({ preFilledDate, onSuccess, initialData }) => {
                         <Field data-invalid={fieldState.invalid}>
                             <FieldLabel htmlFor="roomId">Select Room</FieldLabel>
 
-                            {/* FIX: Change defaultValue to value */}
+                            {/* DYNAMIC GUEST ROOM DROPDOWN */}
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger id="roomId" aria-invalid={fieldState.invalid}>
                                     <SelectValue placeholder="Choose a guest room" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="202A">Room 202A</SelectItem>
-                                    <SelectItem value="202B">Room 202B</SelectItem>
-                                    <SelectItem value="203A">Room 203A</SelectItem>
-                                    <SelectItem value="203B">Room 203B</SelectItem>
+                                    {roomsList.length > 0 ? (
+                                        roomsList.map((room) => (
+                                            <SelectItem key={room.id} value={room.id}>
+                                                {room.name}
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value="none" disabled>No rooms available</SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
