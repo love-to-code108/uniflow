@@ -70,12 +70,13 @@ import {
     ContextMenuTrigger,
     ContextMenuSeparator,
 } from "@/components/ui/context-menu";
-import { submitVehicleRequest } from "@/actions/vehicles";
+
 import { submitGuestRequest } from "@/actions/guests";
 
 import { updateEventRequest } from "@/actions/events";
-import { updateVehicleRequest } from "@/actions/vehicles";
+import { submitVehicleRequest, updateVehicleRequest, getAllVehicles } from "@/actions/vehicles";
 import { updateGuestRequest } from "@/actions/guests";
+
 
 
 // --- 1. DATA & SCHEMA CONFIGURATION ---
@@ -496,6 +497,17 @@ const vehicleFormSchema = z.object({
 export const CreateVehicleForm = ({ preFilledDate, onSuccess, initialData }) => {
 
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
+    const [vehiclesList, setVehiclesList] = React.useState([]);
+
+    React.useEffect(() => {
+        const fetchVehicles = async () => {
+            const res = await getAllVehicles();
+            if (res.status === "SUCCESS") {
+                setVehiclesList(res.data);
+            }
+        };
+        fetchVehicles();
+    }, []);
 
 
 
@@ -565,14 +577,21 @@ export const CreateVehicleForm = ({ preFilledDate, onSuccess, initialData }) => 
                     render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
                             <FieldLabel htmlFor="vehicleId">Select Vehicle</FieldLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            {/* DYNAMIC VEHICLE DROPDOWN */}
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger id="vehicleId" aria-invalid={fieldState.invalid}>
                                     <SelectValue placeholder="Choose a vehicle" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Kia_Carens">Kia Carens</SelectItem>
-                                    <SelectItem value="Innova">Innova</SelectItem>
-                                    <SelectItem value="Ertiga">Ertiga</SelectItem>
+                                    {vehiclesList.length > 0 ? (
+                                        vehiclesList.map((v) => (
+                                            <SelectItem key={v.id} value={v.id}>
+                                                {v.name}
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value="none" disabled>No vehicles available</SelectItem>
+                                    )}
                                 </SelectContent>
                             </Select>
                             {fieldState.invalid && <FieldError errors={[fieldState.error]} />}

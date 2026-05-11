@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { useAuthStore, calanderStore } from "@/store/globalStates";
+import { getAllVehicles } from "@/actions/vehicles";
 
 // --- SHADCN UI IMPORTS ---
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,7 @@ const EventCell = ({ item, isPast }) => {
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
     const [isEditing, setIsEditing] = useState(false);
     const [venuesList, setVenuesList] = useState([]);
+    const [vehiclesList, setVehiclesList] = useState([]);
     const [editForm, setEditForm] = useState({});
 
     const handleEventClick = (e) => {
@@ -103,6 +105,16 @@ const EventCell = ({ item, isPast }) => {
                     const vRes = await getAllVenues();
                     if (vRes.status === "SUCCESS") {
                         setVenuesList(vRes.data);
+                    }
+                }
+                // ---------------------------------------------------
+
+
+                // --- NEW: Fetch dynamic vehicles if it is a vehicle request ---
+                if (item.type === "vehicle") {
+                    const vehRes = await getAllVehicles();
+                    if (vehRes.status === "SUCCESS") {
+                        setVehiclesList(vehRes.data);
                     }
                 }
                 // ---------------------------------------------------
@@ -136,6 +148,7 @@ const EventCell = ({ item, isPast }) => {
             purpose: deepDetails?.purpose || "",
             // --- NEW: Map the relational ID ---
             venueId: deepDetails?.venue?.id || "",
+            vehicleId: deepDetails?.vehicle?.id || "",
         });
         setIsEditing(true);
     };
@@ -441,29 +454,31 @@ const EventCell = ({ item, isPast }) => {
                                 )}
 
                                 {/* VEHICLE DESTINATION & PURPOSE */}
+                                {/* DYNAMIC VEHICLE SELECTION */}
                                 {item.type === "vehicle" && (
-                                    <>
-                                        <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
-                                            <span className="font-semibold text-right text-sm text-muted-foreground">Dest:</span>
-                                            {isEditing ? (
-                                                <div className="col-span-3">
-                                                    <Input className="h-8 text-sm" value={editForm.destination} onChange={(e) => setEditForm({ ...editForm, destination: e.target.value })} />
-                                                </div>
-                                            ) : (
-                                                <span className="col-span-3 font-medium text-sm">{deepDetails.destination}</span>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-4 items-center gap-4">
-                                            <span className="font-semibold text-right text-sm text-muted-foreground">Purpose:</span>
-                                            {isEditing ? (
-                                                <div className="col-span-3">
-                                                    <Input className="h-8 text-sm" value={editForm.purpose} onChange={(e) => setEditForm({ ...editForm, purpose: e.target.value })} />
-                                                </div>
-                                            ) : (
-                                                <span className="col-span-3 font-medium text-sm">{deepDetails.purpose}</span>
-                                            )}
-                                        </div>
-                                    </>
+                                    <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
+                                        <span className="font-semibold text-right text-sm text-muted-foreground">Vehicle:</span>
+                                        {isEditing && canApprove ? (
+                                            <div className="col-span-3">
+                                                <Select value={editForm.vehicleId} onValueChange={(val) => setEditForm({ ...editForm, vehicleId: val })}>
+                                                    <SelectTrigger className="h-8 text-sm w-full">
+                                                        <SelectValue placeholder="Select Vehicle">
+                                                            {vehiclesList.find((v) => v.id === editForm.vehicleId)?.name || "Select Vehicle"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {vehiclesList.map((v) => (
+                                                            <SelectItem key={v.id} value={v.id}>
+                                                                {v.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        ) : (
+                                            <span className="col-span-3 font-medium text-sm">{deepDetails?.vehicle?.name || "TBD"}</span>
+                                        )}
+                                    </div>
                                 )}
 
                                 {/* GUEST PURPOSE */}
