@@ -13,6 +13,16 @@ import { calanderStore } from "@/store/globalStates"; // <-- Add calanderStore h
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
+import { 
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+    AlertDialogAction
+ } from "@/components/ui/alert-dialog"; 
 import {
     Dialog,
     DialogContent,
@@ -115,7 +125,14 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
 
 
     const incrementRefresh = calanderStore((state) => state.incrementRefresh);
-
+    // --- MISSING DIALOG STATE ---
+    const [actionDialog, setActionDialog] = useState({
+        isOpen: false,
+        title: "",
+        description: "",
+        actionLabel: "",
+        onConfirm: null
+    });
 
     const form = useForm({
         resolver: zodResolver(formSchema),
@@ -199,13 +216,17 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
                 description: `The requested hall is full, but the ${response.suggestedVenue} is available. Would you like to book that instead?`,
                 actionLabel: `Book ${response.suggestedVenue}`,
                 onConfirm: async () => {
-                    // --- THE FIX: Use acceptedVenueId instead of acceptedVenue ---
-                    const altRes = await submitEventRequest(data, { acceptedVenueId: response.suggestedVenueId });
+                    // --- THE FIX: We must pass 'payload' (safe date) instead of 'data' (unsafe date) ---
+                    const altRes = await submitEventRequest(payload, { acceptedVenueId: response.suggestedVenueId });
                     
                     if (altRes.status === "SUCCESS") {
                         toast.success(`Event successfully requested in ${response.suggestedVenue}!`);
                         incrementRefresh();
                         onSuccess(false);
+                        setActionDialog({ ...actionDialog, isOpen: false });
+                    } else {
+                        // Added a safety net to show exactly why it failed if it ever happens again
+                        toast.error(altRes.message || "Failed to book the alternative venue.");
                         setActionDialog({ ...actionDialog, isOpen: false });
                     }
                 }
@@ -402,6 +423,34 @@ export const CreateEventForm = ({ preFilledDate, onSuccess, initialData }) => {
             <div className="w-full flex justify-end pt-4">
                 <Button type="submit" form="createNewEventForm">Create Event</Button>
             </div>
+
+
+
+
+            {/* THE ALTERNATIVE VENUE DIALOG */}
+            <AlertDialog open={actionDialog.isOpen} onOpenChange={(open) => setActionDialog({ ...actionDialog, isOpen: open })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{actionDialog.title}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {actionDialog.description}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (actionDialog.onConfirm) actionDialog.onConfirm();
+                            }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            {actionDialog.actionLabel}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </form>
     );
 };

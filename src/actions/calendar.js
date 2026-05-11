@@ -188,19 +188,36 @@ const processBadgeUpdate = async (userId, id, type, updateData) => {
                 return { status: "ERROR", message: "Unauthorized to edit this event." };
             }
 
+            const isApproved = existing.status === "approved";
+            
+            // 1. Everyone with edit rights can change basic text
+            let dataToUpdate = {
+                name: updateData.title,
+                description: updateData.description,
+            };
+
+            // 2. Schedule logic: Requesters can edit if pending. Admins can edit anytime.
+            if (canApprove || !isApproved) {
+                dataToUpdate.date = new Date(updateData.eventDate);
+                dataToUpdate.startTime = updateData.startTime;
+                dataToUpdate.endTime = updateData.endTime;
+            }
+
+            // 3. Venue logic: ONLY Admins can ever edit the venue
+            if (canApprove && updateData.venueId) {
+                dataToUpdate.venueId = updateData.venueId;
+            }
+
             // Execute the update
             updatedRecord = await db.event.update({
                 where: { id },
-                data: {
-                    name: updateData.title,
-                    description: updateData.description,
-                    date: new Date(updateData.eventDate),
-                    startTime: updateData.startTime,
-                    endTime: updateData.endTime,
-                },
-                include: { user: { select: { name: true, username: true } } }
+                data: dataToUpdate,
+                include: { 
+                    user: { select: { name: true, username: true } },
+                    venue: true // <-- CRITICAL FIX: This stops Shadcn from glitching the ID on save!
+                }
             });
-        } 
+        }
         else if (type === "vehicle") {
             const existing = await db.vehicleRequest.findUnique({ where: { id } });
             if (!existing) return { status: "ERROR", message: "Vehicle request not found." };
@@ -305,7 +322,10 @@ const processBadgeResolution = async (userId, id, type, newStatus, expectedStatu
                 updatedRecord = await db.event.update({
                     where: { id },
                     data: { status: newStatus },
-                    include: { user: { select: { name: true, username: true } } }
+                    include: { 
+                        user: { select: { name: true, username: true } },
+                        venue: true // <-- THE FIX: Send the venue data back to the UI!
+                    }
                 });
             }
         } 

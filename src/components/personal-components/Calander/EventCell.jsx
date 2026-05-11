@@ -96,7 +96,7 @@ const EventCell = ({ item, isPast }) => {
                 if (response.status === "SUCCESS") {
                     setDeepDetails(response.data);
                 }
-                
+
                 // --- NEW: Fetch dynamic venues if it is an event ---
                 if (item.type === "event") {
                     const vRes = await getAllVenues();
@@ -120,6 +120,8 @@ const EventCell = ({ item, isPast }) => {
 
     const canEdit = isCreator || canApprove;
 
+    const canEditSchedule = canApprove || item.status === "pending";
+
     const handleEditStart = () => {
         setEditForm({
             title: item.title,
@@ -132,14 +134,24 @@ const EventCell = ({ item, isPast }) => {
             destination: deepDetails?.destination || "",
             purpose: deepDetails?.purpose || "",
             // --- NEW: Map the relational ID ---
-            venueId: deepDetails?.venue?.id || "", 
+            venueId: deepDetails?.venue?.id || "",
         });
         setIsEditing(true);
     };
 
     const handleSave = async () => {
         setIsLoading(true);
-        const response = await updateBadgeDetails(item.id, item.type, editForm);
+
+        // --- NEW: Apply Safe Date to prevent timezone pollution during edits ---
+        let payload = { ...editForm };
+        if (item.type === "event" || item.type === "vehicle") {
+            payload.eventDate = new Date(editForm.eventDate.getFullYear(), editForm.eventDate.getMonth(), editForm.eventDate.getDate(), 12, 0, 0);
+        } else if (item.type === "guest") {
+            payload.checkInDate = new Date(editForm.checkInDate.getFullYear(), editForm.checkInDate.getMonth(), editForm.checkInDate.getDate(), 12, 0, 0);
+            payload.checkOutDate = new Date(editForm.checkOutDate.getFullYear(), editForm.checkOutDate.getMonth(), editForm.checkOutDate.getDate(), 12, 0, 0);
+        }
+
+        const response = await updateBadgeDetails(item.id, item.type, payload);
 
         if (response.status === "SUCCESS") {
             toast.success("Details updated successfully!");
@@ -272,8 +284,8 @@ const EventCell = ({ item, isPast }) => {
                                 {item.type === "guest" ? (
                                     <div className="grid grid-cols-4 items-start gap-4 border-b pb-2">
                                         <span className="font-semibold text-right text-sm text-muted-foreground mt-2">Dates:</span>
-                                        {isEditing ? (
-                                            <div className="col-span-3 flex flex-col gap-2">
+                                        {isEditing && canEditSchedule ? (
+                                            <div className="col-span-3">
                                                 <Popover>
                                                     <PopoverTrigger asChild>
                                                         <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal h-8 text-sm", !editForm.checkInDate && "text-muted-foreground")}>
@@ -306,7 +318,7 @@ const EventCell = ({ item, isPast }) => {
                                 ) : (
                                     <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
                                         <span className="font-semibold text-right text-sm text-muted-foreground">Date:</span>
-                                        {isEditing ? (
+                                        {isEditing && canEditSchedule ? (
                                             <div className="col-span-3">
                                                 <Popover>
                                                     <PopoverTrigger asChild>
@@ -350,7 +362,9 @@ const EventCell = ({ item, isPast }) => {
                                             <div className="col-span-3">
                                                 <Select value={editForm.venueId} onValueChange={(val) => setEditForm({ ...editForm, venueId: val })}>
                                                     <SelectTrigger className="h-8 text-sm w-full">
-                                                        <SelectValue placeholder="Select Venue" />
+                                                        <SelectValue placeholder="Select Venue">
+                                                            {venuesList.find((v) => v.id === editForm.venueId)?.name || "Select Venue"}
+                                                        </SelectValue>
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {venuesList.map((v) => (
@@ -371,7 +385,7 @@ const EventCell = ({ item, isPast }) => {
                                 {item.type !== "guest" && (
                                     <div className="grid grid-cols-4 items-center gap-4 border-b pb-2">
                                         <span className="font-semibold text-right text-sm text-muted-foreground">Time:</span>
-                                        {isEditing ? (
+                                        {isEditing && canEditSchedule ? (
                                             <div className="col-span-3 flex gap-2 items-center">
                                                 <Select value={editForm.startTime} onValueChange={(val) => setEditForm({ ...editForm, startTime: val })}>
                                                     <SelectTrigger className="h-8 text-sm w-full">
